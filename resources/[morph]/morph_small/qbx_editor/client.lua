@@ -1,0 +1,25 @@
+RegisterCommand('record', function()
+    StartRecording(1)
+    exports.morph_junjie:Notify(locale('success.started_recording'), 'success')
+end, false)
+
+RegisterCommand('clip', function()
+    StartRecording(0)
+    exports.morph_junjie:Notify(locale('success.stopped_recording'), 'success')
+end, false)
+
+RegisterCommand('saveclip', function()
+    StopRecordingAndSaveClip()
+    exports.morph_junjie:Notify(locale('success.saved_recording'), 'success')
+end, false)
+
+RegisterCommand('delclip', function()
+    StopRecordingAndDiscardClip()
+    exports.morph_junjie:Notify(locale('error.deleted_recording'), 'error')
+end, false)
+
+RegisterCommand('editor', function()
+    NetworkSessionLeaveSinglePlayer()
+    ActivateRockstarEditor()
+    exports.morph_junjie:Notify(locale('error.later_aligator'), 'error')
+end, false)

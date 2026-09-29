@@ -1,0 +1,95 @@
+# NETWORK
+endpoint_add_tcp "0.0.0.0:30120"
+endpoint_add_udp "0.0.0.0:30120"
+sv_maxclients 48
+sv_licenseKey "cfxk_1gGzfSCjYukpnfqYlkKZE_4Qwvdp"
+set steam_webApiKey "BF56009DD3467593A4016CF207EE28B1"
+set sd_phone_secret "T1U5T5,/d0-Nc3(dP-gu|q&/$d£OkV%`<YufA|bXrYuMk!"
+sv_tebexSecret f05b43fafe465d7e181973a42bbd38a3ad061f4c
+set fivemanage:key "hOjHNroKG6lsrixiCscP3SIm5FsJA0Vj"
+
+# SERVER INFORMATION
+sv_hostname "Morph Arcadia Dream District"
+sets sv_projectName "Morph Arcadia Dream District"
+sets sv_projectDesc "Lowkey just taking it easy today, no rush, no pressure."
+sets Developer "Solo Developer with AI Assistance:P"
+sets tags "morph, arcadia, dream, district, indonesia, korean, japanese"
+sets Status "Under Development"
+sets Region "Asia Pacific"
+sets locale "ko-KR"
+load_server_icon arcadia-2.png
+sets banner_detail "https://r2.fivemanage.com/LWuo5Gsa0kHYJBzKdKCtd/connectt.gif"
+sets banner_connecting "https://r2.fivemanage.com/LWuo5Gsa0kHYJBzKdKCtd/bannerrr.gif"
+
+# SERVER FEATURES
+sets Features "Custom scripts, unique systems, active staff"
+sets Events "Daily events & diverse RP stories"
+# sets Community "180,000,000+ active players across Riot Games"
+
+# OFFICIAL PARTNERS
+sets Partner "ZOWIE by BenQ | Pulsar GG | Secret Lab"
+sets partner-Websites "https://zowie.benq.com | https://www.pulsar.gg | https://secretlab.co"
+
+# GAME SETTINGS
+set sv_enforceGameBuild 3258
+set gametype "Roleplay"
+set mapname "Own Theme"
+
+# DATABASE
+set mysql_connection_string "mysql://root:@localhost/morphjunjie?charset=utf8mb4"
+
+# QBOX
+setr qb_locale "en"
+setr qbx:enableBridge true
+set qbx:enableQueue true
+set qbx:bucketLockdownMode "inactive"
+set qbx:discordLink "discord.gg/riotgames"
+set qbx:max_jobs_per_player 1
+set qbx:max_gangs_per_player 1
+set qbx:setjob_replaces true
+set qbx:setgang_replaces true
+set qbx:cleanPlayerGroups true
+set qbx:allowMethodOverrides true
+set qbx:disableOverrideWarning false
+setr qbx:enableVehiclePersistence true
+setr qbx:vehiclePersistenceType "semi"
+set qbx:acknowledge true
+setr qbx:enableGroupManagement true
+
+# OTHER CONFIGURATION
+setr morph_cloth:locale "en"
+setr weather_disablecd true
+setr voice_defaultVolume 0.5
+setr voice_enableProximity true
+
+# DEFAULT RESOURCES
+ensure sessionmanager
+stop basic-gamemode
+ensure hardcap
+ensure !morphjunjie
+
+# RIOT CORE
+ensure morph_ui
+ensure morph_junjie
+ensure morph_tget
+
+# RESOURCE GROUPS
+ensure [ox]
+ensure [morph]
+ensure [modules]
+ensure [dependency]
+ensure [voice]
+ensure [mlo]
+ensure [standalone]
+ensure [phone]
+
+# PERMISSIONS
+add_principal identifier.fivem:15444452 group.admin
+add_principal identifier.discord:951070035001098320 group.admin
+add_principal identifier.license2:53f07d145e796c146fc0c0b9f8de3d47313c0f4a group.admin
+
+# EXECUTE CONFIGS
+exec voice.cfg
+exec ox.cfg
+exec permissions.cfg
+exec misc.cfg

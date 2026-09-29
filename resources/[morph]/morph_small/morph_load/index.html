@@ -1,0 +1,77 @@
+<!--My discord digitalranger#0 Joint discord-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
+<!--Custom fonts-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+<!--Custom fonts-->  
+</head>
+<body class="sky noselect">
+    <h1 class="space noselect" id="text">Press SPACE to turn OFF music.</h1>
+
+    <div class="video-background video-container noselect">
+        <video autoplay loop class="video" muted>
+            <source src="video/video.mp4" type="video/mp4" />
+        </video>
+    </div>
+
+    <div class="background noselect">
+    </div>
+
+    <audio id="loading" src="song/music.mp3" autoplay hidden loop></audio>
+</body>
+
+<script>
+    // Function for lower or higher up sound in background, its working function in script but its not noted in text//
+    var play = false;
+            var vid = document.getElementById("loading"); 
+            vid.volume = 0.05; // Diubah dari 0.2 menjadi 0.05 (lebih kecil)
+            window.addEventListener('keyup', function(e)
+            {
+                if (e.which == 38){ // 
+                    vid.volume = Math.min(vid.volume + 0.1,1);
+                } else if(e.which == 40){ // 
+                    vid.volume = Math.max(vid.volume - 0.1,0);
+                };
+            });
+    // Function for lower or higher up sound in background, its working function in script but its not noted in text//
+
+    // Function for pause and play music in background//
+            var audio = document.querySelector('audio');
+    
+            if (audio) {
+    
+            window.addEventListener('keydown', function (event) {
+    
+            var key = event.which || event.keyCode;
+            var x = document.getElementById("text").innerText;
+            var y = document.getElementById("text");
+    
+            if (key === 32 && x == "Press SPACE to turn OFF music.")  { // spacebar
+
+    
+            event.preventDefault();
+    
+            audio.paused ? audio.play() : audio.pause();
+            y.innerHTML = "Press SPACE to turn ON music.";
+     
+
+
+            }else if (key === 32 && x == "Press SPACE to turn ON music.") {
+
+            
+            event.preventDefault();
+    
+            audio.paused ? audio.play() : audio.pause();
+            y.innerHTML = "Press SPACE to turn OFF music.";
+            }
+      });
+    }
+    // Function for pause and play music in background//
+    </script>
+</body>
+</html>

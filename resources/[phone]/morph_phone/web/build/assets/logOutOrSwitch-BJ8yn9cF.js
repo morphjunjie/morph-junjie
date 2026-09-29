@@ -1,0 +1,1 @@
+import{F as e}from"./index-DnFUU17-.js";function t(e){return e?e.name||e.username:null}async function n(t){let{switchedTo:n}=await e(t);return n}export{t as n,n as t};

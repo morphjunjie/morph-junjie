@@ -1,0 +1,53 @@
+{
+    "teleports": [
+        [
+            {
+                "coords": [3540.74, 3675.59, 20.99, 167.5],
+                "allowVehicle": false,
+                "drawText": "Labs Elevator",
+                "ignoreGround": true,
+                "requiredItem": "lab_key",
+                "requiredItemLabel": "Lab Key"
+            },
+            {
+                "coords": [3540.74, 3675.59, 28.11, 172.5],
+                "allowVehicle": false,
+                "drawText": "Labs Elevator",
+                "requiredItem": "lab_key",
+                "requiredItemLabel": "Lab Key"
+            }
+        ],
+        [
+            {
+                "coords": [909.49, -1589.22, 30.51, 91.74],
+                "allowVehicle": false,
+                "drawText": "Coke Processing",
+                "requiredItem": "lab_key",
+                "requiredItemLabel": "Lab Key"
+            },
+            {
+                "coords": [1088.81, -3187.57, -38.99, 181.2],
+                "allowVehicle": false,
+                "drawText": "Coke Processing",
+                "requiredItem": "lab_key",
+                "requiredItemLabel": "Lab Key"
+            }
+        ],
+        [
+            {
+                "coords": [1242.23, -3196.84, 6.03, 265.94],
+                "allowVehicle": false,
+                "drawText": "Weed Processing",
+                "requiredItem": "lab_key",
+                "requiredItemLabel": "Lab Key"
+            },
+            {
+                "coords": [1066.4, -3183.43, -39.16, 91.02],
+                "allowVehicle": false,
+                "drawText": "Weed Processing",
+                "requiredItem": "lab_key",
+                "requiredItemLabel": "Lab Key"
+            }
+        ]
+    ]
+}

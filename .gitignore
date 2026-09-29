@@ -1,0 +1,13 @@
+# Config files
+*.cfg
+
+# SQL files
+*.sql
+
+# REPL history
+.replxx_history
+
+.rar
+
+# Cache folders
+cache/

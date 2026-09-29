@@ -1,0 +1,1 @@
+import{D as e,G as t,Z as n,hn as r}from"./index-DnFUU17-.js";async function i(e){let{signedOut:i}=await t(e);return n([e]),r(`${e}:`),i}async function a(){let{signedOut:i}=await t();n(e);for(let t of e)r(`${t}:`);return i}export{a as n,i as t};

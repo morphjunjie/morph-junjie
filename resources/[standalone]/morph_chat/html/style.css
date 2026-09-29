@@ -1,0 +1,89 @@
+@font-face{font-family:'Baloo 2';src:url('fonts/Baloo2.ttf') format('truetype');font-weight:400 800;font-style:normal;font-display:swap}
+
+:root{
+  --ink:#1a0a0e; --cacao:#2d1b0d; --cacao2:#3d2b1d; --line:#7C4DFF;
+  --rose:#7C4DFF; --rose-hot:#6A3DE8; --lilac:#B388FF; --cream:#D4C4F0; --red:#e06b6b;
+  --sticker:2px 2px 0 rgba(0,0,0,.35);
+  --sh:0 1px 3px rgba(0,0,0,.92),0 0 2px rgba(0,0,0,.85);
+  --w:440px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Baloo 2',sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:transparent;user-select:none}
+
+#chat{position:absolute;width:var(--w);display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#chat[data-pos="top-left"]{left:22px;top:20px}
+#chat[data-pos="top-right"]{right:22px;top:20px}
+#chat[data-pos="bottom-left"]{left:22px;bottom:20px}
+.hidden{display:none !important}
+
+#log{width:100%;display:flex;flex-direction:column;gap:4px;padding:11px 13px;border-radius:16px;max-height:44vh;overflow:hidden;
+  background:linear-gradient(180deg,rgba(26,10,14,.46),rgba(26,10,14,.26));border:1px solid rgba(124,77,255,.16);
+  transition:opacity .5s ease}
+#log.dim{opacity:.0}
+#chat.typing #log,#log.awake{opacity:1}
+
+.row{width:100%;font-size:13.5px;line-height:1.5;color:var(--cream);text-shadow:var(--sh);font-weight:600;
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;padding:2px 6px;border-radius:9px;animation:pop .18s ease}
+@keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.row .ts{font-size:10.5px;font-weight:700;color:rgba(212,196,240,.5);flex:none}
+.row .tag{font-weight:800;font-size:10px;letter-spacing:.4px;padding:1px 8px 0;border-radius:999px;color:var(--ink);
+  box-shadow:var(--sticker);text-shadow:none;flex:none;line-height:16px}
+.row .name{font-weight:800;flex:none}
+.row .body{font-weight:600;min-width:0;word-break:break-word}
+.row .mn{color:var(--rose);font-weight:800}
+.row.mention{background:rgba(124,77,255,.22);box-shadow:inset 3px 0 0 var(--rose-hot)}
+.row.sys .body{color:var(--rose)}
+.row.me .body{color:var(--rose-hot);font-style:italic}
+.row.doo .body{color:var(--lilac);font-style:italic}
+.row.ooc .body{color:rgba(212,196,240,.6)}
+.row.dm .body{color:var(--rose)}
+.row.dm .name{color:var(--rose)}
+
+.card{width:100%;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;padding:7px 12px;border-radius:12px;
+  font-size:13.5px;line-height:1.5;font-weight:600;color:var(--cream);text-shadow:var(--sh);animation:pop .18s ease}
+.card .ts{font-size:10.5px;font-weight:700;color:rgba(212,196,240,.5);flex:none}
+.card .tag{font-weight:800;font-size:10px;letter-spacing:.4px;padding:1px 8px 0;border-radius:999px;color:var(--ink);box-shadow:var(--sticker);text-shadow:none;flex:none;line-height:16px}
+.card .name{font-weight:800;flex:none}
+.card .body{min-width:0;word-break:break-word}
+.card.ad{background:rgba(124,77,255,.15);border:1px solid rgba(124,77,255,.5)}
+.card.ad .lead{display:inline-flex;align-items:center;gap:5px;font-weight:800;color:var(--rose);flex:none}
+.card.ad .lead svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.card.report{background:rgba(224,107,107,.15);box-shadow:inset 3px 0 0 var(--red)}
+.card.report .tag{background:var(--red)}
+.card.report .name{color:var(--red)}
+
+#inputwrap{width:100%;display:flex;flex-direction:column;gap:7px;pointer-events:auto}
+
+#emojis{width:100%;padding:9px 11px;border-radius:14px;background:rgba(26,10,14,.92);border:1px solid var(--line);box-shadow:var(--sticker)}
+#emojis .cat{font-size:10px;font-weight:800;letter-spacing:.5px;color:rgba(212,196,240,.45);text-transform:uppercase;margin:0 2px 5px}
+#egrid{display:grid;grid-template-columns:repeat(10,1fr);gap:2px}
+#egrid span{display:grid;place-items:center;height:30px;border-radius:8px;font-size:17px;cursor:pointer;transition:background .1s}
+#egrid span:hover{background:rgba(124,77,255,.28)}
+
+#sugg{width:100%;border-radius:13px;overflow:hidden;background:rgba(26,10,14,.92);border:1px solid var(--line);box-shadow:var(--sticker)}
+#sugg .s{display:flex;align-items:center;gap:10px;padding:8px 13px;color:var(--cream);font-size:13px}
+#sugg .s.sel{background:rgba(124,77,255,.22)}
+#sugg .s .cmd{font-weight:800;color:var(--rose)}
+#sugg .s .desc{margin-left:auto;font-size:11.5px;color:rgba(212,196,240,.5)}
+
+#inbar{width:100%;display:flex;align-items:center;gap:9px;height:44px;padding:0 8px 0 14px;border-radius:14px;
+  background:rgba(26,10,14,.85);border:1px solid var(--rose-hot);box-shadow:0 0 0 3px rgba(124,77,255,.16),var(--sticker)}
+#inbar .flower{color:var(--rose);font-size:15px;flex:none}
+#chan{font-weight:800;font-size:11px;color:var(--ink);background:var(--rose);padding:2px 9px 1px;border-radius:8px;flex:none}
+#txt{flex:1;min-width:0;background:none;border:none;outline:none;font-size:14px;color:var(--cream);font-weight:600;caret-color:var(--rose)}
+#txt::placeholder{color:rgba(212,196,240,.4)}
+.ibtn{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;cursor:pointer}
+#ebtn{background:rgba(124,77,255,.22);color:var(--rose)}
+#ebtn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#send{background:var(--rose-hot);color:var(--ink)}
+#send svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+
+#bubbles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.bub{position:absolute;transform:translate(-50%,-100%);display:flex;align-items:center;gap:8px;
+  padding:6px 13px 6px 7px;border-radius:14px;background:rgba(26,10,14,.85);border:1px solid rgba(124,77,255,.32);
+  box-shadow:var(--sticker);white-space:nowrap;transition:opacity .2s}
+.bub::after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border:6px solid transparent;border-top-color:rgba(26,10,14,.85);border-bottom:0}
+.bub .ht{font-weight:800;font-size:10px;letter-spacing:.4px;color:var(--ink);padding:2px 8px 1px;border-radius:8px;box-shadow:var(--sticker)}
+.bub.me .ht{background:var(--rose-hot)}
+.bub.doo .ht{background:var(--lilac)}
+.bub .htx{font-weight:600;font-size:13px;color:var(--cream);text-shadow:var(--sh)}
