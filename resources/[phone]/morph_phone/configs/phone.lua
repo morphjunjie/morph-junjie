@@ -5,7 +5,9 @@ return {
     -- the prop model held in hand (PropPrefix .. colour). Add variants by
     -- shipping the matching `sd_phone_<colour>` prop and listing it here.
     -- Order matters: the keybind opens the first owned variant when the
-    -- last-used one isn't held. Set to {} to disable item-based opening.
+    -- last-used one isn't held. Every way of opening the phone (keybind, item,
+    -- exports, compat commands) requires one of these items, so {} means
+    -- nobody can open the phone.
     Items = {
         { item = 'phone_black',  color = 'black'  },
         { item = 'phone_blue',   color = 'blue'   },
@@ -92,7 +94,7 @@ return {
 
     -- Default keybind to open / close the phone. Players can rebind
     -- via FiveM's keybinding menu (Settings → Key Bindings → FiveM).
-    Keybind  = 'M',
+    Keybind  = 'F1',
 
     -- Hide the phone while the player is dead, swimming, in water,
     -- or carrying a two-handed weapon. The phone is still openable
@@ -216,13 +218,17 @@ return {
     --     set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
     --
-    -- A fixed relay of your own (coturn, Metered) can be added for calls on top of that:
-    --     set sd_phone_turn_url        "turn:turn.example.com:3478"
+    -- A relay of your own (coturn) can be added for calls on top of that. Use coturn's
+    -- static-auth-secret so every player gets their own login that expires by itself:
+    --     set sd_phone_turn_url    "turn:turn.example.com:3478"
+    --     set sd_phone_turn_secret "the static-auth-secret from turnserver.conf"
+    -- A fixed username/password still works, but it is ONE login shared by every player, and anyone
+    -- can copy it out of the game and use your relay (and your bandwidth) from anywhere:
     --     set sd_phone_turn_username   "your-username"
     --     set sd_phone_turn_credential "your-password"
     --
     -- Set this false to silence the boot warning if you deliberately run STUN-only.
-    WarnAboutTurn = false,
+    WarnAboutTurn = true,
 
     -- Hold this key/button (while the phone is open) to free the mouse for
     -- camera rotation without closing the phone. Releasing it returns to the

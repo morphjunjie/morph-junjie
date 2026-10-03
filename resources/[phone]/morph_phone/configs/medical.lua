@@ -22,10 +22,10 @@ return {
 
         -- true  - only a player who is downed or dead can be scanned.
         -- false - anyone can, which is what you want if medics also run clinics and check-ups.
-        RequireDowned = true,
+        RequireDowned = false,
 
         -- Tell the person they were scanned. Off by default: a medic reading the card of someone
         -- who is unconscious should not be popping a notification on their screen.
-        NotifyTarget = true,
+        NotifyTarget = false,
     },
 }

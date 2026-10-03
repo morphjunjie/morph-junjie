@@ -1,5 +1,7 @@
----@type fun(nuiAction: string, serverEvent: string) NUI->server pass-through registrar (client.nui).
+---@type fun(nuiAction: string, serverEvent: string, onAccepted?: fun(), transform?: fun(res: table)) NUI->server pass-through registrar (client.nui).
 local proxy = require 'client.nui'
+---@type fun(res: table) Completes an HTTP upload slot with this client's server address (client.uploadurl).
+local uploadUrl = require 'client.uploadurl'
 
 -- Thin delegates into server/callrec.
 proxy('morph_phone:callrec:list',    'morph_phone:server:callrec:list')
@@ -33,3 +35,6 @@ end)
 -- on the server. These put it on ordinary HTTPS instead, with the event path as the fallback.
 proxy('morph_phone:callrec:uploadSlot', 'morph_phone:server:callrec:uploadSlot')
 proxy('morph_phone:callrec:uploadDone', 'morph_phone:server:callrec:uploadDone')
+
+-- HTTP upload: the recording goes to the server over its HTTP port instead of a game network event.
+proxy('morph_phone:callrec:httpSlot', 'morph_phone:server:callrec:httpSlot', nil, uploadUrl)

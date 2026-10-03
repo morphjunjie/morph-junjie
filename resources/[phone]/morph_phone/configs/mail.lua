@@ -6,7 +6,7 @@ return {
     -- The one email domain players register under. Sign-up asks for the
     -- username only and the domain is appended server-side; full addresses
     -- on any other domain are rejected.
-    Domain = 'morph.com',
+    Domain = 'lifeinvader.com',
 
     -- Per-player cap on simultaneously logged-in accounts. How many a character may CREATE is
     -- configs/accounts.lua (Accounts.PerApp.mail, else MaxPerApp), shared with every other app;

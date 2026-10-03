@@ -8,6 +8,9 @@ local qbox = require 'server.photos.qbox'
 ---presigned-upload claim can tell a fresh object from one that already belongs to another app.
 local ledger = require 'server.media.ledger'
 
+---@type table Media sniffer (server.media.sniff): the bytes must be the media their label claims.
+local sniff = require 'server.media.sniff'
+
 ---@type table Uploader module; the table returned at end of file.
 local uploader = {}
 
@@ -135,6 +138,17 @@ function uploader.uploadMedia(base64Image, filename, cb)
     local function recorded(url, err, code)
         if url then ledger.record(url) end
         cb(url, err, code)
+    end
+
+    -- Every caller caps size by the label (a still at 4 MB, a clip at 32 MB), so the label has to
+    -- be true: otherwise an image sent as data:video/ gets the clip allowance, and anything at all
+    -- can be hosted on the owner's account as long as it is called media.
+    local okMedia, declared = sniff.matches(base64Image)
+    if not okMedia then
+        print(('^1[morph_phone:photos]^0 [UPLOAD] refused: the payload is not the %s its data URL claims')
+            :format(tostring(declared or 'media')))
+        cb(nil, 'The file is not a supported photo, video or audio format', 'bad-data')
+        return
     end
 
     if uploader.provider() == 'qbox' then

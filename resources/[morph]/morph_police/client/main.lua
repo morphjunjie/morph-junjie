@@ -1,7 +1,7 @@
 local config = require 'config.shared'
 IsEscorted = false
 local dutyBlips = {}
-local isUsingXTPrison = GetResourceState('xt-prison'):find('start')
+local isUsingXTPrison = GetResourceState('morph_prison'):find('start')
 
 local function CreateDutyBlips(playerId, playerLabel, playerJob, playerLocation)
     local ped = GetPlayerPed(playerId)

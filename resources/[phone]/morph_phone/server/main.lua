@@ -70,6 +70,7 @@ require 'server.devseed.init'
 pcall(require, 'server.devswap')
 require 'server.notifications.init'
 require 'server.notes.init'
+require 'server.search.init'
 require 'server.calendar.init'
 require 'server.documents.init'
 require 'server.homes.init'
@@ -116,6 +117,8 @@ require 'server.statebags'
 
 -- lb-phone export compatibility shim (inert while the real lb-phone runs; sd_phone_lbcompat kill switch).
 require 'server.compat.lbphone.init'
+-- lb-tablet dispatch export compatibility shim (inert while the real lb-tablet runs; sd_phone_lbtabletcompat kill switch).
+require 'server.compat.lbtablet.init'
 -- yseries export compatibility shim (inert while the real yseries runs; sd_phone_yseriescompat kill switch).
 require 'server.compat.yseries.init'
 -- qs-smartphone export compatibility shim (sd_phone_qscompat kill switch).

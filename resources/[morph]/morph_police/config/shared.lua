@@ -2,6 +2,8 @@ return {
     timeout = 10000,
     maxSpikes = 5,
     policePlatePrefix = 'LSPD',
+    fineLogger = false,
+    maxFine = 100000, -- Maximum amount allowed by the /fine command.
     objects = {
         cone = {model = `prop_roadcone02a`, freeze = false},
         barrier = {model = `prop_barrier_work06a`, freeze = true},
@@ -10,7 +12,7 @@ return {
         light = {model = `prop_worklight_03b`, freeze = true},
         chair = {model = `prop_chair_08`, freeze = true},
         chairs = {model = `prop_chair_pile_01`, freeze = true},
-        tabe = {model = `prop_table_03`, freeze = true},
+        table = {model = `prop_table_03`, freeze = true},
         monitor = {model = `des_tvsmash_root`, freeze = true},
     },
 

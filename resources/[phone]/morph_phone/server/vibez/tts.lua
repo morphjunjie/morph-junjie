@@ -2,6 +2,8 @@
 local config   = require 'configs.config'
 ---@type table Media uploader (server.photos.uploader): base64 -> hosted CDN URL, provider-agnostic.
 local uploader = require 'server.photos.uploader'
+---@type table Shared upload budget (server.photos.mediaLimit): every voiceover is an upload.
+local mediaLimit = require 'server.photos.mediaLimit'
 
 ---@type table Clout TTS knobs (configs/vibez.lua TTS): Enabled, Endpoint, Voices.
 local CFG = (config.Vibez and config.Vibez.TTS) or {}
@@ -12,6 +14,9 @@ local ENDPOINT = (type(CFG.Endpoint) == 'string' and CFG.Endpoint ~= '' and CFG.
     or 'https://tiktok-tts.weilnet.workers.dev/api/generation'
 ---@type integer Longest spoken line accepted, matching the composer's own cap.
 local MAX_LEN = 300
+---@type integer What one voiceover is charged against the upload budget, in bytes. Charged before
+---the clip exists, so it is a ceiling: 300 characters of speech is well under a megabyte of mp3.
+local CHARGE_BYTES <const> = 1024 * 1024
 
 ---@type table<string, boolean> Every voice code the config offers, for validating what a client asks for.
 local VOICES = {}
@@ -48,16 +53,18 @@ function tts.voiceValid(code) return type(code) == 'string' and VOICES[code] == 
 ---Turns a line of text into a hosted audio clip: asks the endpoint for base64 audio, then uploads
 ---it through the shared media uploader. Blocking, so it runs inside a callback coroutine; a failure
 ---returns nil and the caller carries on without a voiceover rather than failing the whole post.
+---@param src integer player the voiceover is for, charged against the shared upload budget
 ---@param text string what to speak
 ---@param voice string a voice code from the config
 ---@return string|nil url hosted audio URL, nil on any failure
-function tts.generate(text, voice)
+function tts.generate(src, text, voice)
     if not ENABLED then return nil end
     if not tts.voiceValid(voice) then return nil end
     text = type(text) == 'string' and text or ''
     text = text:gsub('^%s+', ''):gsub('%s+$', '')
     if text == '' then return nil end
     if #text > MAX_LEN then text = text:sub(1, MAX_LEN) end
+    if not mediaLimit.charge(src, CHARGE_BYTES) then return nil end
 
     local gen = promise.new()
     PerformHttpRequest(ENDPOINT, function(status, body)

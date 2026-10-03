@@ -90,11 +90,13 @@ return {
 
             file[fileSize+1] = '}'
 
-            SaveResourceFile('morph_inv', 'data/items.lua', table.concat(file), -1)
+            if not SaveResourceFile('morph_junjie', 'converted.lua', table.concat(file), -1) then
+                error('Unable to save converted items to morph_junjie/converted.lua')
+            end
             CreateThread(function()
                 Wait(1000)
-                print('^2[warning]^7 '..count..' items have been added to morph_inv')
-                print('^2[warning]^7 You MUST restart the resource to load the new items.')
+                print('^2[warning]^7 '..count..' items have been added to converted.lua in morph_junjie')
+                print('^2[warning]^7 Review converted.lua, copy the converted definitions into morph_inv/data/items.lua, and restart morph_inv.')
             end)
         end
     end

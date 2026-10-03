@@ -15,7 +15,7 @@ return {
     --
     -- To run a terminal on the phone itself, set `mdt` to `enabled = true` in
     -- configs/apps.lua as well.
-    Enabled = true,
+    Enabled = false,
 
     -- Departments whose members reach the MDT. A player's ACTIVE framework job
     -- must appear here or every callback refuses, including the reads.
@@ -141,8 +141,10 @@ return {
         ['chat.send']        = 0,
         ['bulletins.view']   = 0,
 
-        -- Standing orders. Every sworn member reads their own department's SOPs;
-        -- there is no manage key because configs/sops.lua is the only author.
+        -- Standing orders. Every sworn member reads their own department's SOPs.
+        -- sops.manage lets a department rewrite, add or hide its OWN orders from the
+        -- terminal; it never reaches another department's. configs/sops.lua stays the
+        -- set every department starts from.
         ['sops.view']        = 0,
         ['me.update']        = 0,
 
@@ -165,6 +167,16 @@ return {
         ['court.rule']       = 1,
         ['expunge.rule']     = 1,
         ['warrants.void']    = 2,
+
+        -- Sharing police paperwork with the court. shares.create and shares.revoke are police
+        -- keys: an officer who can read a report, case or warrant may share it with a court
+        -- department as view-only or editable, and take it back. shared.edit is a court key: the
+        -- grade a judge or attorney needs to change paperwork shared with them as editable. It
+        -- ships at 0 because the officer picking "Can edit" is already the grant, and the stock
+        -- judge and lawyer jobs only have grade 0. Raise it to keep editing to senior court staff.
+        ['shares.create']    = 0,
+        ['shares.revoke']    = 0,
+        ['shared.edit']      = 0,
 
         -- Internal Affairs. Filing a complaint is deliberately open to every
         -- sworn grade: a probationer who witnesses misconduct must be able to
@@ -197,6 +209,13 @@ return {
         ['reports.delete']   = 4,
         ['cases.delete']     = 4,
         ['protocols.manage'] = 4,
+
+        -- Retuning the penal code from the terminal: changing what a charge carries in fines and
+        -- jail time, adding a charge of your own, or hiding a shipped one. Police command and the
+        -- court can both hold it. Changes only apply to paperwork filed afterwards, since every
+        -- report keeps its own copy of the charges it was filed with.
+        ['offences.manage']  = 4,
+        ['sops.manage']      = 4,
         ['roster.grade']     = 4,
         ['roster.dismiss']   = 4,
         ['logs.view']        = 4,
@@ -212,8 +231,8 @@ return {
         MaxFineReduction   = 2500,  -- most an officer may cut from a citation
         MaxMonths          = 240,   -- hard ceiling on a single sentence
         -- Prison system. 'auto' probes, in order: qbx_prison, qb-prison, morph_prison,
-        -- pickle_prisons, tk_jail, esx_tk_jail, qb-policejob, ps-policejob, esx_jail,
-        -- esx-qalle-jail, rcore_prison.
+        -- p_policejob (pScripts Police Job v3), pickle_prisons, tk_jail, esx_tk_jail,
+        -- qb-policejob, ps-policejob, esx_jail, esx-qalle-jail, rcore_prison.
         Resource           = 'auto',
         -- What the prison counts a sentence in. 'auto' trusts the adapter, which is right for
         -- every script above. Override only if yours was reconfigured: getting this wrong is the
@@ -288,14 +307,14 @@ return {
             -- than merely ignoring what arrives on it: aty_dispatchv2 set to false means the
             -- client relay is never registered at all. Anything not listed here is on, so a
             -- config written before a system was supported keeps working.
-            --   ps-dispatch       ps-dispatch:server:notify
+            --   morph_dispatch       morph_dispatch:server:notify
             --   qb-dispatch       dispatch:server:notify (and its many forks)
             --   cd_dispatch       cd_dispatch:AddNotification
             --   qs-dispatch       qs-dispatch:server:CreateDispatchCall
             --   rcore_dispatch    rcore_dispatch:server:sendAlert
             --   aty_dispatchv2    aty_dispatchv2:client:sendDispatch, relayed by the client half
             Systems = {
-                ['ps-dispatch']    = true,
+                ['morph_dispatch']    = true,
                 ['qb-dispatch']    = true,
                 ['cd_dispatch']    = true,
                 ['qs-dispatch']    = true,

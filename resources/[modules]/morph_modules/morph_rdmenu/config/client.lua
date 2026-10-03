@@ -1,92 +1,91 @@
 local bags = {[40] = true, [41] = true, [44] = true, [45] = true}
 
 return {
-    enableExtraMenu = false,
-    flipTime = 15000,
+    enableExtraMenu = true,
 
     menuItems = {
-        --{
-        --    id = 'citizen',
-        --    icon = 'user',
-        --    label = 'Citizen',
-        --    items = {
-                --{
-                --    id = 'givenum',
-                --    icon = 'address-book',
-                --    label = 'Give Contact Details',
-                --    event = 'qb-phone:client:GiveContactDetails'
-                --},
-                --{
-                --    id = 'getintrunk',
-                --    icon = 'car',
-                --    label = 'Get In Trunk',
-                --    event = 'qb-trunk:client:GetIn'
-                --},
-                --{
-                --    id = 'cornerselling',
-                --    icon = 'cannabis',
-                --    label = 'Corner Selling',
-                --    event = 'qb-drugs:client:cornerselling'
-                --},
-        --        {
-        --            id = 'interactions',
-        --            icon = 'exclamation-triangle',
-        --            label = 'Interaction',
-        --            items = {
-        --                {
-        --                    id = 'handcuff',
-        --                    icon = 'user-lock',
-        --                    label = 'Cuff',
-        --                    event = 'police:client:CuffPlayer',
-        --                },
-        --                {
-        --                    id = 'playerInVehicle',
-        --                    icon = 'car-side',
-        --                   label = 'Put In Vehicle',
-        --                    event = 'police:client:PutPlayerInVehicle',
-        --                },
-        --                {
-        --                    id = 'playerOutVehicle',
-        --                   icon = 'car-side',
-        --                    label = 'Take Out Vehicle',
-        --                    event = 'police:client:SetPlayerOutVehicle',
-        --                },
-        --                {
-        --                    id = 'stealPlayer',
-        --                    icon = 'mask',
-        --                    label = 'Rob',
-        --                    event = 'police:client:RobPlayer',
-        --                },
-        --                {
-        --                    id = 'kidnapPlayer',
-        --                    icon = 'user-group',
-        --                    label = 'Kidnap',
-        --                    event = 'police:client:KidnapPlayer',
-        --                },
-        --                {
-        --                    id = 'escortPlayer',
-        --                    icon = 'user-group',
-        --                    label = 'Escort',
-        --                    event = 'police:client:EscortPlayer',
-        --                },
-        --                {
-        --                    id = 'takeHostage',
-        --                    icon = 'child',
-        --                    label = 'Take Hostage',
-        --                    event = 'police:client:TakeHostage',
-        --                },
-        --            },
-        --        },
-        --    },
-        --},
+        {
+            id = 'citizen',
+            icon = 'user',
+            label = 'Citizen',
+            items = {
+                {
+                    id = 'givenum',
+                    icon = 'address-book',
+                    label = 'Give Contact Details',
+                    event = 'qb-phone:client:GiveContactDetails'
+                },
+                {
+                    id = 'getintrunk',
+                    icon = 'car',
+                    label = 'Get In Trunk',
+                    event = 'qb-trunk:client:GetIn'
+                },
+                {
+                    id = 'cornerselling',
+                    icon = 'cannabis',
+                    label = 'Corner Selling',
+                    event = 'qb-drugs:client:cornerselling'
+                },
+                {
+                    id = 'interactions',
+                    icon = 'exclamation-triangle',
+                    label = 'Interaction',
+                    items = {
+                        {
+                            id = 'handcuff',
+                            icon = 'user-lock',
+                            label = 'Cuff',
+                            event = 'police:client:CuffPlayer',
+                        },
+                        {
+                            id = 'playerInVehicle',
+                            icon = 'car-side',
+                            label = 'Put In Vehicle',
+                            event = 'police:client:PutPlayerInVehicle',
+                        },
+                        {
+                            id = 'playerOutVehicle',
+                            icon = 'car-side',
+                            label = 'Take Out Vehicle',
+                            event = 'police:client:SetPlayerOutVehicle',
+                        },
+                        {
+                            id = 'stealPlayer',
+                            icon = 'mask',
+                            label = 'Rob',
+                            event = 'police:client:RobPlayer',
+                        },
+                        {
+                            id = 'kidnapPlayer',
+                            icon = 'user-group',
+                            label = 'Kidnap',
+                            event = 'police:client:KidnapPlayer',
+                        },
+                        {
+                            id = 'escortPlayer',
+                            icon = 'user-group',
+                            label = 'Escort',
+                            event = 'police:client:EscortPlayer',
+                        },
+                        {
+                            id = 'takeHostage',
+                            icon = 'child',
+                            label = 'Take Hostage',
+                            event = 'police:client:TakeHostage',
+                        },
+                    },
+                },
+            },
+        },
         {
             id = 'general',
             icon = 'rectangle-list',
             label = 'General',
             items = {
                 {
-                    id = 'reloadskin',
-                    icon = 'sync',
+                    id = 'reload skin',
+                    icon = 'person-dress',
                     label = 'Reload Skin',
                     event = 'morph_cloth:client:reloadSkin',
                 },
@@ -358,92 +357,9 @@ return {
                 event = 'police:client:EscortPlayer',
             },
         },
-        mechanic = {
-            {
-                id = 'towVehicle',
-                icon = 'truck-pickup',
-                label = 'Tow Vehicle',
-                event = 'qb-tow:client:TowVehicle',
-            },
-        },
     },
 
-    gangItems = {
-        {
-            id = 'gang',
-            icon = 'skull',
-            label = 'Gang',
-            items = {
-                --{
-                --    id = 'givenum',
-                --    icon = 'address-book',
-                --    label = 'Give Contact Details',
-                --    event = 'qb-phone:client:GiveContactDetails'
-                --},
-                --{
-                --    id = 'getintrunk',
-                --    icon = 'car',
-                --    label = 'Get In Trunk',
-                --    event = 'qb-trunk:client:GetIn'
-                --},
-                {
-                    id = 'cornerselling',
-                    icon = 'cannabis',
-                    label = 'Corner Selling',
-                    event = 'qb-drugs:client:cornerselling'
-                },
-                {
-                    id = 'interactions',
-                    icon = 'exclamation-triangle',
-                    label = 'Interaction',
-                    items = {
-                        {
-                            id = 'handcuff',
-                            icon = 'user-lock',
-                            label = 'Cuff',
-                            event = 'police:client:CuffPlayer',
-                        },
-                        {
-                            id = 'playerInVehicle',
-                            icon = 'car-side',
-                            label = 'Put In Vehicle',
-                            event = 'police:client:PutPlayerInVehicle',
-                        },
-                        {
-                            id = 'playerOutVehicle',
-                            icon = 'car-side',
-                            label = 'Take Out Vehicle',
-                            event = 'police:client:SetPlayerOutVehicle',
-                        },
-                        {
-                            id = 'stealPlayer',
-                            icon = 'mask',
-                            label = 'Rob',
-                            event = 'police:client:RobPlayer',
-                        },
-                        {
-                            id = 'kidnapPlayer',
-                            icon = 'user-group',
-                            label = 'Kidnap',
-                            event = 'police:client:KidnapPlayer',
-                        },
-                        {
-                            id = 'escortPlayer',
-                            icon = 'user-group',
-                            label = 'Escort',
-                            event = 'police:client:EscortPlayer',
-                        },
-                        {
-                            id = 'takeHostage',
-                            icon = 'child',
-                            label = 'Take Hostage',
-                            event = 'police:client:TakeHostage',
-                        },
-                    },
-                },
-            },
-        },
-    },
+    gangItems = {},
 
     vehicleDoors = {
         id = 'vehicleDoors',

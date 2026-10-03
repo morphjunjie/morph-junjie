@@ -167,7 +167,6 @@ local function resetAllInjuries()
     SendBleedAlert()
     MakePedLimp()
     doLimbAlert()
-    lib.callback.await('morph_medical:server:resetHungerAndThirst')
 end
 
 ---notify the player of bleeding to their body.
@@ -220,13 +219,14 @@ RegisterNetEvent('morph_medical:client:playerRevived', function()
         EndLastStand()
     end
 
+    TriggerEvent('police:client:DeEscort')
     SetEntityMaxHealth(cache.ped, 200)
     SetEntityHealth(cache.ped, 200)
     ClearPedBloodDamage(cache.ped)
     SetPlayerSprint(cache.playerId, true)
     resetAllInjuries()
     ResetPedMovementClipset(cache.ped, 0.0)
-    -- TriggerServerEvent('hud:server:RelieveStress', 100)
+    TriggerServerEvent('hud:server:RelieveStress', 100)
     exports.morph_junjie:Notify(locale('info.healthy'), 'inform')
     LocalPlayer.state.invBusy = false
 end)

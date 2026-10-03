@@ -27,6 +27,6 @@ return {
 
     -- What Discord shows as the sender. The webhook's own name/avatar are used when these are
     -- blank, so leaving them alone is fine.
-    Username  = 'MJ Phone',
+    Username  = 'morph_phone',
     AvatarUrl = '',
 }

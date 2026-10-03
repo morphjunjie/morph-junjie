@@ -37,6 +37,10 @@ local DENY_PREFIX = { 'morph_phone:call:', 'morph_phone:video:', 'morph_phone:pa
 local DENY = {
     ['morph_phone:calls:seen']           = true,
     ['morph_phone:services:callCompany'] = true,
+    -- The hinge is the phone's body, not shared data. Mirrored, the phone's unfolded width lands
+    -- on the tablet and stretches its screen off the edge.
+    ['morph_phone:fold']                 = true,
+    ['morph_phone:fold:set']             = true,
 }
 
 ---Whether an action is closed to companion devices.

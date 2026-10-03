@@ -7,8 +7,10 @@ local hints = require 'client.hints'
 local phonecam = require 'client.phonecam'
 ---@type table Hold pose and hand prop (client.pose): the landscape grip is a prop transform.
 local pose = require 'client.pose'
----@type fun(nuiAction: string, serverEvent: string) NUI -> server callback proxy (client.nui).
+---@type fun(nuiAction: string, serverEvent: string, onAccepted?: fun(), transform?: fun(res: table)) NUI -> server callback proxy (client.nui).
 local proxyCallback = require 'client.nui'
+---@type fun(res: table) Completes an HTTP upload slot with this client's server address (client.uploadurl).
+local uploadUrl = require 'client.uploadurl'
 
 ---Flips the active cellphone camera between rear and front (selfie).
 ---The old raw hash (0x2491A93618B7D838) is stale on current builds and threw "invalid native",
@@ -270,6 +272,12 @@ RegisterNUICallback('morph_phone:camera:open', function(_, cb)
     cb({ success = true, walkable = phonecam.active(), hints = hints.config() })
 end)
 
+---React -> Lua: the game view renderer is being created - reports the mode the server resolved
+---from Photos.EnhancedGameView.
+RegisterNUICallback('morph_phone:render:gameViewMode', function(_, cb)
+    cb({ success = true, mode = GlobalState['morph_phone:gameViewMode'] or 'off' })
+end)
+
 ---React -> Lua: the Camera app unmounted - kill the flash and restore the normal view.
 RegisterNUICallback('morph_phone:camera:close', function(_, cb)
     stopFlash()
@@ -352,6 +360,9 @@ end)
 -- the moment either says no.
 proxyCallback('morph_phone:camera:uploadSlot', 'morph_phone:server:photos:uploadSlot')
 proxyCallback('morph_phone:camera:uploadDone', 'morph_phone:server:photos:uploadDone')
+
+-- HTTP upload: the recording goes to the server over its HTTP port instead of a game network event.
+proxyCallback('morph_phone:camera:httpSlot', 'morph_phone:server:photos:httpSlot', nil, uploadUrl)
 
 ---Resource-stop cleanup: stops the flash and exits the cell-cam view.
 ---@param res string name of the resource that stopped

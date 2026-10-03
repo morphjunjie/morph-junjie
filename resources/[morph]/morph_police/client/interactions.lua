@@ -1,4 +1,5 @@
 local config = require 'config.client'
+local sharedConfig = require 'config.shared'
 local isEscorting = false
 local cuffType = 1
 
@@ -141,7 +142,7 @@ RegisterNetEvent('police:client:RobPlayer', function()
         return exports.morph_junjie:Notify(locale('error.no_rob'), 'error')
     end
 
-    if lib.progressBar({
+    if lib.progressCircle({
             duration = math.random(5000, 7000),
             position = 'bottom',
             label = locale('progressbar.robbing'),
@@ -182,7 +183,9 @@ RegisterNetEvent('police:client:JailPlayer', function()
     local dialog = lib.inputDialog(locale('info.jail_time_input'), {
         { type = 'number', label = locale('info.time_months'), min = 0 }
     })
-    if dialog and dialog[1] > 0 then
+    if not dialog then return end
+
+    if dialog[1] > 0 then
         TriggerServerEvent('police:server:JailPlayer', playerId, dialog[1])
     else
         exports.morph_junjie:Notify(locale('error.time_higher'), 'error')
@@ -362,6 +365,43 @@ RegisterNetEvent('police:client:GetCuffed', function(playerId, isSoftcuff)
         exports.morph_junjie:Notify(locale('success.uncuffed'), 'success')
     end
 end)
+
+RegisterNetEvent('police:client:FinePlayer', function(nearbyPlayers)
+    local dialog = lib.inputDialog(locale('info.fine_title'), {
+        {
+            type = 'select',
+            label = locale('info.select_citizen'),
+            options = nearbyPlayers,
+            required = true,
+        },
+        {
+            type = 'input',
+            label = locale('info.law_violated'),
+            placeholder = locale('info.law_placeholder'),
+            required = true
+        },
+        {
+            type = 'number',
+            label = locale('info.fine_amount'),
+            min = 1,
+            max = sharedConfig.maxFine or 100000,
+            required = true
+        },
+        {
+            type = 'input',
+            label = locale('info.officer_notes'),
+            placeholder = locale('info.notes_placeholder'),
+            optional = true
+        }
+    })
+    
+    if dialog and dialog[1] and dialog[2] and dialog[3] and dialog[3] > 0 then
+        TriggerServerEvent('police:server:IssueFine', dialog[1], dialog[2], dialog[3], dialog[4] or '')
+    else
+        exports.morph_junjie:Notify(locale('error.invalid_fine'), 'error')
+    end
+end)
+
 
 local DISABLED_CONTROLS = {
     21,  -- Sprint

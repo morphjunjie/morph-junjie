@@ -127,7 +127,8 @@ local function requireBoss(src)
 end
 
 ---Builds the `myCompany` block for the caller, or nil when they hold no real job; balance and
----the merged framework + saved-job roster (sorted, capped at EMP_LIMIT) ship only for bosses.
+---the merged framework + saved-job roster (online members first, then capped at EMP_LIMIT) ship
+---only for bosses.
 ---@param src number caller server id
 ---@return table|nil
 local function buildMyCompany(src)
@@ -192,8 +193,9 @@ local function buildMyCompany(src)
             local r    = byCid[ecid]
             local esrc = online[ecid]
             local status, grade
-            if esrc and job.getName(esrc) == myJob then
-                local d = job.getDuty(esrc)
+            local st   = esrc and job.getState(esrc)
+            if st and st.name == myJob then
+                local d = st.duty
                 status = (d == nil or d) and 'duty' or 'offduty'
                 grade  = r.fwGrade or r.savedGrade or 0
             else
@@ -209,15 +211,18 @@ local function buildMyCompany(src)
                 online = esrc ~= nil,
                 self   = ecid == cid or nil,
             }
-            if #roster >= EMP_LIMIT then break end
             ::continue::
         end
         local statusRank = { duty = 0, offduty = 1, away = 2 }
         table.sort(roster, function(a, b)
+            -- Keep every connected employee above disconnected ones. This must happen before
+            -- applying the limit, otherwise a large offline roster could hide online staff.
+            if a.online ~= b.online then return a.online end
             if a.status ~= b.status then return (statusRank[a.status] or 9) < (statusRank[b.status] or 9) end
             if a.grade  ~= b.grade  then return a.grade > b.grade end
             return a.name < b.name
         end)
+        for i = EMP_LIMIT + 1, #roster do roster[i] = nil end
         mc.employees = roster
     end
 
@@ -231,17 +236,25 @@ local rosterAt = {}
 ---@type table<string, boolean> Jobs with a trailing roster push already scheduled.
 local rosterQueued = {}
 
+---@type integer How long the on-duty map is reused, in ms. It walks every connected player, so
+---each directory read rebuilding it cost one framework lookup per player.
+local DUTY_TTL = 5000
+---@type { map: table<string, boolean>|nil, at: number } Memo of the last on-duty map.
+local dutyMemo = { map = nil, at = 0 }
+
 ---Every job with at least one player on duty. Built once per directory read: asking per company
----would walk all online players again for each one, and the player object behind it is uncached.
+---would walk all online players again for each one. Reused for DUTY_TTL; a duty flip shows up in
+---the public list within that window.
 ---@return table<string, boolean> jobName -> true
 local function onDutyJobs()
+    local now = GetGameTimer()
+    if dutyMemo.map and now - dutyMemo.at >= 0 and now - dutyMemo.at < DUTY_TTL then return dutyMemo.map end
     local out = {}
     for _, tsrc in pairs(player.onlineCidMap()) do
-        if job.getDuty(tsrc) == true then
-            local name = job.getName(tsrc)
-            if name then out[name] = true end
-        end
+        local st = job.getState(tsrc)
+        if st and st.duty == true and st.name then out[st.name] = true end
     end
+    dutyMemo = { map = out, at = now }
     return out
 end
 
@@ -266,7 +279,8 @@ function actions.notifyRoster(jobName)
 
     local esxBoss = esxBossGrade(jobName)
     for _, tsrc in pairs(player.onlineCidMap()) do
-        if job.getName(tsrc) == jobName and job.isBoss(tsrc, jobName, esxBoss) then
+        local st = job.getState(tsrc)
+        if st and st.name == jobName and job.isBoss(tsrc, jobName, esxBoss) then
             TriggerClientEvent('morph_phone:client:services:rosterChanged', tsrc, {})
         end
     end
@@ -293,13 +307,26 @@ function actions.companyList()
     return companies
 end
 
+---The directory as the Services app lists it: companies with staff on duty first, config order
+---kept within each group. Kept apart from companyList, whose config order the export promises.
+---@return table[] companies
+local function companiesByAvailability()
+    local online, offline = {}, {}
+    for _, company in ipairs(actions.companyList()) do
+        local list = company.onDuty and online or offline
+        list[#list + 1] = company
+    end
+    for _, company in ipairs(offline) do online[#online + 1] = company end
+    return online
+end
+
 ---Returns the public company directory plus the caller's own company block, `multijob`, and
 ---`pendingOffers`. Read-only.
 ---@param src number
 function actions.directory(src)
     local cid = player.getIdentifier(src)
     return ok({
-        companies       = actions.companyList(),
+        companies       = companiesByAvailability(),
         myCompany       = buildMyCompany(src),
         multijob        = job.supportsMultijob(),
         invoicesEnabled = SV.InvoicesEnabled ~= false,
@@ -320,6 +347,7 @@ function actions.setDuty(src, payload)
 
     local on = payload.on == true
     job.setDuty(src, on)
+    dutyMemo.map = nil
     store.setDuty(cid, myJob, on)
     TriggerClientEvent('morph_phone:client:services:dutyChanged', src, { job = myJob, duty = on })
     TriggerEvent('morph_phone:services:dutyChanged', src, myJob, on)

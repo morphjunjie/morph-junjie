@@ -19,7 +19,9 @@ client_scripts {
     '@morph_junjie/modules/playerdata.lua',
     'client/functions.lua',
     'client/searchkeys.lua',
+    'client/keyfob.lua',
     'client/main.lua',
+    'client/autolock.lua',
     'client/carjack.lua',
     'bridge/qb/client.lua',
 }

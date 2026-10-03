@@ -1,1 +1,0 @@
-import{r as e}from"./nui-5mv9Xn24.js";import{n as t}from"./api-DP_OMrNj.js";var n=null;async function r(){return n||(e?(n={people:(await t(`morph_phone:maps:config`))?.people!==!1},n):(n={people:!0},n))}export{r as t};

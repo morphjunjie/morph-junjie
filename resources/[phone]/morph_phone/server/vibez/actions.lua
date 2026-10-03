@@ -368,7 +368,7 @@ function actions.create(src, payload)
     if ttsText ~= '' and tts.enabled() and tts.voiceValid(payload.ttsVoice) then
         -- Reuse the clip the composer already previewed when it matches, so the same voice is
         -- not generated and uploaded a second time; otherwise make it now.
-        local url = tts.cachedFor(src, ttsText, payload.ttsVoice) or tts.generate(ttsText, payload.ttsVoice)
+        local url = tts.cachedFor(src, ttsText, payload.ttsVoice) or tts.generate(src, ttsText, payload.ttsVoice)
         if url then ttsUrl, ttsVoice = url, payload.ttsVoice end
     end
     tts.forget(src)
@@ -420,7 +420,7 @@ function actions.ttsPreview(src, payload)
     local voice = payload.ttsVoice or payload.voice
     local slow = throttle(src, 'ttsPreview'); if slow then return slow end
 
-    local url = tts.generate(text, voice)
+    local url = tts.generate(src, text, voice)
     if not url then return fail('vibez.ttsFailed', 'Could not generate the voice, try again') end
     tts.remember(src, text, voice, url)
     return ok({ url = url })

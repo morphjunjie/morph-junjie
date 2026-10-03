@@ -1,4 +1,4 @@
-local config = require 'morph_rdmenu.config.client'
+local config = require 'config.client'
 
 -----------------------
 ------- Events --------
@@ -206,18 +206,7 @@ end)
 RegisterNetEvent('radialmenu:client:ChangeSeat', function(id, label)
     local isSeatFree = IsVehicleSeatFree(cache.vehicle, id - 2)
     local speed = GetEntitySpeed(cache.vehicle)
-    
-    -- Cek apakah morph_stbelt ada dan export HasHarness tersedia
-    local hasHarness = false
-    if GetResourceState('morph_stbelt') == 'started' then
-        local success, result = pcall(function()
-            return exports.morph_stbelt:HasHarness()
-        end)
-        if success then
-            hasHarness = result
-        end
-    end
-    
+    local hasHarness = exports.qbx_seatbelt:HasHarness()
     if hasHarness then
         return exports.morph_junjie:Notify(locale('error.race_harness_on'), 'error')
     end
@@ -327,35 +316,8 @@ RegisterNetEvent('radialmenu:client:setExtra', function(id)
 end)
 
 RegisterNetEvent('radialmenu:flipVehicle', function()
-    if cache.vehicle then
-        return
-    end
-    local coords = GetEntityCoords(cache.ped)
-    local vehicle = lib.getClosestVehicle(coords)
-    if not vehicle then
-        return exports.morph_junjie:Notify(locale('error.no_vehicle_nearby'), 'error')
-    end
-    if lib.progressBar({
-        label = locale('progress.flipping_car'),
-        duration = config.flipTime,
-        useWhileDead = false,
-        canCancel = true,
-        disable = {
-            move = true,
-            car = true,
-            mouse = false,
-            combat = true
-        },
-        anim = {
-            dict = 'mini@repair',
-            clip = 'fixing_a_ped'
-        }
-    }) then
-        SetVehicleOnGroundProperly(vehicle)
-        exports.morph_junjie:Notify(locale('success.flipped_car'), 'success')
-    else
-        exports.morph_junjie:Notify(locale('error.cancel_task'), 'error')
-    end
+    if GetResourceState('qbx_smallresources') ~= 'started' then return end
+    exports.qbx_smallresources:FlipVehicle()
 end)
 
 AddEventHandler('onResourceStart', function(resource)

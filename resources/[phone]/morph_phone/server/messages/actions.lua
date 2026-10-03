@@ -14,6 +14,8 @@ local uploader      = require 'server.photos.uploader'
 local mediaLimit    = require 'server.photos.mediaLimit'
 ---@type table Presigned upload slots (server.photos.presign): mint + claim for the direct path.
 local presign = require 'server.photos.presign'
+---@type table HTTP upload ingest (server.media.httpUpload): single-use slots on the server's HTTP port.
+local httpUpload = require 'server.media.httpUpload'
 ---@type table Messages persistence layer (server.messages.store): mailbox rows, groups, reactions.
 local store         = require 'server.messages.store'
 ---@type table Badge engine (server.badges.init): server-authoritative home-screen unread counts.
@@ -1324,8 +1326,9 @@ end
 ---@return table
 function actions.voiceSlot(source)
     if not presign.available() then return fail('messages.uploadFailed', 'Upload failed') end
+    local maxBytes = (config.VoiceMemos and config.VoiceMemos.MaxAudioBytes) or (8 * 1024 * 1024)
     local p = promise.new()
-    presign.mint(source, function(url) p:resolve(url) end)
+    presign.mint(source, { maxBytes = math.floor(maxBytes * 0.75) }, function(url) p:resolve(url) end)
     local url = Citizen.Await(p)
     if not url then return fail('messages.uploadFailed', 'Upload failed') end
     return ok({ url = url })
@@ -1350,12 +1353,6 @@ function actions.voiceDone(source, payload)
         return fail('messages.uploadFailed', 'Upload failed')
     end
 
-    local okLimit, why = mediaLimit.check(player.getIdentifier(source), res.bytes)
-    if not okLimit then
-        if why == 'cooldown' then return fail('messages.slowDownMoment', 'Slow down a moment') end
-        return fail('messages.uploadLimitReached', 'Upload limit reached')
-    end
-
     local trustedUrl = mediaGuard.rememberVoice(player.getIdentifier(source), res.url)
     if not trustedUrl then return fail('messages.uploadFailed', 'Upload failed') end
     return ok({ url = trustedUrl })
@@ -1367,18 +1364,21 @@ end
 ---is no longer the first thing tried.
 ---@param source number
 ---@param payload { audio?: string }
+---@param prepaid boolean|nil true when an HTTP slot already holds the budget for it
 ---@return table
-function actions.uploadVoice(source, payload)
+function actions.uploadVoice(source, payload, prepaid)
     payload = type(payload) == 'table' and payload or {}
     local audio = payload.audio
     if type(audio) ~= 'string' or not lib.string.startsWith(audio, 'data:audio/') then return fail('messages.badAudioPayload', 'Bad audio payload') end
 
     local maxBytes = (config.VoiceMemos and config.VoiceMemos.MaxAudioBytes) or (8 * 1024 * 1024)
     if #audio > maxBytes then return fail('messages.recordingTooLong', 'Recording is too long') end
-    local okLimit, why = mediaLimit.check(player.getIdentifier(source), #audio)
-    if not okLimit then
-        if why == 'cooldown' then return fail('messages.slowDownMoment', 'Slow down a moment') end
-        return fail('messages.uploadLimitReached', 'Upload limit reached')
+    if not prepaid then
+        local okLimit, why = mediaLimit.charge(source, #audio)
+        if not okLimit then
+            if why == 'cooldown' then return fail('messages.slowDownMoment', 'Slow down a moment') end
+            return fail('messages.uploadLimitReached', 'Upload limit reached')
+        end
     end
 
     local ext = audio:find('^data:audio/mpeg') and 'mp3'
@@ -1398,6 +1398,20 @@ function actions.uploadVoice(source, payload)
     local trustedUrl = mediaGuard.rememberVoice(player.getIdentifier(source), url)
     if not trustedUrl then return fail('messages.uploadFailed', 'Upload failed') end
     return ok({ url = trustedUrl })
+end
+
+---Opens an HTTP upload slot for a voice message; the last part is answered with the hosted URL,
+---exactly as the base64 route answers.
+---@param source number
+---@return table
+function actions.voiceHttpSlot(source)
+    local maxBytes = (config.VoiceMemos and config.VoiceMemos.MaxAudioBytes) or (8 * 1024 * 1024)
+    local slot, why = httpUpload.mint(source, maxBytes, function(owner, body)
+        return actions.uploadVoice(owner, { audio = body }, true)
+    end)
+    if slot then return ok(slot) end
+    if why == 'cooldown' then return fail('messages.slowDownMoment', 'Slow down a moment') end
+    return fail('messages.uploadLimitReached', 'Upload limit reached')
 end
 
 return actions

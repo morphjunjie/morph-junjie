@@ -15,7 +15,7 @@
 -- moment they leave the camera.
 return {
     -- Whether the Cameras section works at all.
-    Enabled = true,
+    Enabled = false,
 
     -- Framework jobs that carry a bodycam. Leave empty to mean "every police department in
     -- configs/mdt.lua". A job that is not a police department never gets a camera whatever

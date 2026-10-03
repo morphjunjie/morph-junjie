@@ -46,6 +46,7 @@ lib.callback.register('morph_phone:server:accounts:suggestCode',  function(src, 
 lib.callback.register('morph_phone:server:accounts:myNumber',     function(src)          return actions.myNumber(src) end)
 lib.callback.register('morph_phone:server:accounts:myEmail',      function(src)          return actions.myEmail(src) end)
 lib.callback.register('morph_phone:server:accounts:savePassword',   function(src, payload) return actions.savePassword(src, payload) end)
+lib.callback.register('morph_phone:server:accounts:saveCustomPassword', function(src, payload) return actions.saveCustomPassword(src, payload) end)
 lib.callback.register('morph_phone:server:accounts:listPasswords',  function(src)          return actions.listPasswords(src) end)
 lib.callback.register('morph_phone:server:accounts:deletePassword', function(src, payload) return actions.deletePassword(src, payload) end)
 

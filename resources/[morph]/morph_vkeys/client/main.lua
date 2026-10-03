@@ -7,6 +7,7 @@ local function toggleLock(vehicle)
     local vehicleConfig = GetVehicleConfig(vehicle)
     if vehicleConfig.noLock or vehicleConfig.shared then return end
     if GetIsVehicleAccessible(vehicle) then
+        Entity(cache.ped).state:set('morph_vkeys:keyFob', true, true)
 
         lib.playAnim(cache.ped, 'anim@mp_player_intmenu@key_fob@', 'fob_click', 3.0, 3.0, -1, 49)
 
@@ -29,6 +30,8 @@ local function toggleLock(vehicle)
         SetVehicleLights(vehicle, 0)
         Wait(300)
         ClearPedTasks(cache.ped)
+
+        Entity(cache.ped).state:set('morph_vkeys:keyFob', false, true)
     else
         exports.morph_junjie:Notify(locale('notify.no_keys'), 'error')
     end
@@ -48,11 +51,17 @@ local function onEnteringDriverSeat()
             Wait(0)
         end
     end)
+
     local vehicleConfig = GetVehicleConfig(vehicle)
     if vehicleConfig.shared then return end
 
     local isVehicleAccessible = GetIsVehicleAccessible(vehicle)
     if isVehicleAccessible then return end
+
+    if config.getKeysWhenEntering then
+        TriggerServerEvent('morph_vkeys:server:tookKeys', VehToNet(vehicle))
+        return
+    end
 
     local isVehicleRunning = GetIsVehicleEngineRunning(vehicle)
     if config.getKeysWhenEngineIsRunning and isVehicleRunning then
@@ -169,7 +178,7 @@ RegisterNetEvent('QBCore:Client:VehicleInfo', function(data)
 
     if driver ~= 0 and IsEntityDead(driver) and not (vehicleConfig.carjackingImmune or IsPedAPlayer(driver)) then
         TriggerServerEvent('qb-vehiclekeys:server:setVehLockState', data.netId, 1)
-        if lib.progressBar({
+        if lib.progressCircle({
             duration = 2500,
             label = locale('progress.takekeys'),
             position = 'bottom',
@@ -205,23 +214,6 @@ RegisterNetEvent('morph_vkeys:client:OnLostKeys', function()
         onEnteringDriverSeat()
     end
 end)
-
-for _, info in pairs(config.sharedKeys) do
-    if info.enableAutolock then
-        lib.onCache('vehicle', function (vehicle)
-            local leftVehicle = cache.vehicle
-            if not vehicle and leftVehicle then
-                local isShared = AreKeysJobShared(leftVehicle)
-                local isAutolockEnabled = config.sharedKeys[QBX.PlayerData.job.name]?.enableAutolock
-
-                if isShared and isAutolockEnabled then
-                    TriggerServerEvent('qb-vehiclekeys:server:setVehLockState', NetworkGetNetworkIdFromEntity(leftVehicle), 2)
-                end
-            end
-        end)
-        break
-    end
-end
 
 qbx.entityStateHandler('doorslockstate', function(entity, _, value)
     if entity == 0 then return end

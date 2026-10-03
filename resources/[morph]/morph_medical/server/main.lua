@@ -12,6 +12,7 @@ local logger = require '@morph_junjie.modules.logger'
 ---@alias Source number
 
 local triggerEventHooks = require '@morph_junjie.modules.hooks'
+local respawning = {}
 
 local function getDeathState(src)
 	local player = exports.morph_junjie:GetPlayer(src)
@@ -37,12 +38,37 @@ AddStateBagChangeHandler(DEATH_STATE_STATE_BAG, nil, function(bagName, _, value)
         player.Functions.SetMetaData('isdead', value == sharedConfig.deathState.DEAD)
         player.Functions.SetMetaData('inlaststand', value == sharedConfig.deathState.LAST_STAND)
         Player(playerId).state:set("isDead", value == sharedConfig.deathState.DEAD or value == sharedConfig.deathState.LAST_STAND, true)
+        if value == sharedConfig.deathState.ALIVE then
+            respawning[playerId] = nil
+        end
     end
 end)
 
 ---@param player table|number
+local function resetHungerAndThirst(player)
+    if player == -1 then
+        for _, onlinePlayer in pairs(exports.morph_junjie:GetQBPlayers()) do
+            resetHungerAndThirst(onlinePlayer)
+        end
+        return
+    end
+    if type(player) == 'number' then
+        player = exports.morph_junjie:GetPlayer(player)
+    end
+    if not player then return end
+
+    player.Functions.SetMetaData('hunger', 100)
+    player.Functions.SetMetaData('thirst', 100)
+    TriggerClientEvent('hud:client:UpdateNeeds', player.PlayerData.source, 100, 100)
+end
+
+exports('ResetHungerAndThirst', resetHungerAndThirst)
+
+---@param player table|number
 local function revivePlayer(player)
-    TriggerClientEvent('morph_medical:client:playerRevived', player --[[@as number]])
+    resetHungerAndThirst(player)
+    local target = type(player) == 'table' and player.PlayerData.source or player
+    TriggerClientEvent('morph_medical:client:playerRevived', target)
 end
 
 exports('Revive', revivePlayer)
@@ -50,6 +76,7 @@ exports('Revive', revivePlayer)
 ---removes all ailments, sets to full health, and fills up hunger and thirst.
 ---@param src Source
 local function heal(src)
+    resetHungerAndThirst(src)
     TriggerClientEvent('morph_medical:client:heal', src, 'full')
 end
 
@@ -64,18 +91,43 @@ end
 exports('HealPartially', healPartially)
 
 ---Compatibility with txAdmin Menu's heal options.
----This is an admin only server side event that will pass the target player id or -1.
----@class EventData
----@field id number
----@param eventData EventData
-AddEventHandler('txAdmin:events:healedPlayer', function(eventData)
-	if GetInvokingResource() ~= 'monitor' or type(eventData) ~= 'table' or type(eventData.id) ~= 'number' then
-		return
-	end
-
-	revivePlayer(eventData.id)
-	heal(eventData.id)
-end)
+---This is an admin only server side event that will handle player healing from txAdmin.
+---The event name and data structure depends on the txAdmin version.
+if GetResourceState('monitor') ~= 'missing' then
+    local TX_VERSION = GetResourceMetadata('monitor', 'version', 0) or 'unknown'
+    local majorVersion = tonumber(TX_VERSION:match('^(%d+)')) or 0
+    if majorVersion >= 8 then
+        lib.print.info(('txAdmin %s integration enabled (Modern API)'):format(TX_VERSION))
+        ---Compatibility with txAdmin Menu's heal options.
+        ---This is an admin only server side event that will pass the target player id or -1.
+        ---@class EventData
+        ---@field target number
+        ---@param eventData EventData
+        AddEventHandler('txAdmin:events:playerHealed', function(eventData)
+            if GetInvokingResource() ~= 'monitor' or type(eventData) ~= 'table' then return end
+            local target = eventData.target
+            if type(target) == 'number' then
+                revivePlayer(target)
+                heal(target)
+            end
+        end)
+    else
+        lib.print.info(('txAdmin %s integration enabled (Legacy API)'):format(TX_VERSION))
+        ---Compatibility with txAdmin Menu's heal options.
+        ---This is an admin only server side event that will pass the target player id or -1.
+        ---@class EventData
+        ---@field id number
+        ---@param eventData EventData
+        AddEventHandler('txAdmin:events:healedPlayer', function(eventData)
+            if GetInvokingResource() ~= 'monitor' or type(eventData) ~= 'table' then return end
+            local target = eventData.id
+            if type(target) == 'number' then
+                revivePlayer(target)
+                heal(target)
+            end
+        end)
+    end
+end
 
 local function getPlayerInjuries(state)
 	local injuries = {}
@@ -115,23 +167,12 @@ end
 
 exports('GetPlayerStatus', getPlayerStatus)
 
----@param amount number
-lib.callback.register('morph_medical:server:setArmor', function(source, amount)
+lib.callback.register('morph_medical:server:setArmor', function(source)
 	local player = exports.morph_junjie:GetPlayer(source)
-	player.Functions.SetMetaData('armor', amount)
+	if not player then return end
+	local armor = math.max(0, math.min(100, GetPedArmour(GetPlayerPed(source))))
+	player.Functions.SetMetaData('armor', armor)
 end)
-
-local function resetHungerAndThirst(player)
-	if type(player) == 'number' then
-		player = exports.morph_junjie:GetPlayer(player)
-	end
-
-	player.Functions.SetMetaData('hunger', 100)
-	player.Functions.SetMetaData('thirst', 100)
-	TriggerClientEvent('hud:client:UpdateNeeds', player.PlayerData.source, 100, 100)
-end
-
-lib.callback.register('morph_medical:server:resetHungerAndThirst', resetHungerAndThirst)
 
 lib.addCommand('revive', {
     help = locale('info.revive_player_a'),
@@ -182,11 +223,24 @@ lib.addCommand('aheal', {
 end)
 
 lib.callback.register('morph_medical:server:respawn', function(source)
-	if not triggerEventHooks('respawn', {source = source}) then return false end
+	if Player(source).state[DEATH_STATE_STATE_BAG] ~= sharedConfig.deathState.DEAD or respawning[source] then return false end
+	local respawnToken = GetGameTimer()
+	respawning[source] = respawnToken
+	if not triggerEventHooks('respawn', {source = source}) then
+		respawning[source] = nil
+		return false
+	end
 	TriggerEvent('morph_medical:server:playerRespawned', source)
+	SetTimeout(30000, function()
+		if respawning[source] == respawnToken then respawning[source] = nil end
+	end)
 	return true
 end)
 
 lib.callback.register('morph_medical:server:log', function(_, event, message)
 	logger.log({source = 'morph_medical', event = event, message = message})
+end)
+
+AddEventHandler('playerDropped', function()
+	respawning[source] = nil
 end)

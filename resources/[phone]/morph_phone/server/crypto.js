@@ -116,6 +116,8 @@ registerExport('sdCryptoEncrypt', encrypt);
 registerExport('sdCryptoDecrypt', decrypt);
 registerExport('sdCryptoSha256', (s) => crypto.createHash('sha256').update(String(s), 'utf8').digest('hex'));
 registerExport('sdCryptoRandomHex', (n) => crypto.randomBytes(Math.min(64, Math.max(1, Number(n) || 32))).toString('hex'));
+// coturn's REST API credential: base64(HMAC-SHA1(shared secret, username)).
+registerExport('sdCryptoHmacSha1Base64', (key, msg) => crypto.createHmac('sha1', String(key)).update(String(msg), 'utf8').digest('base64'));
 
 // The relay token helpers. `server/media/tokens.lua` signs every grant through these, and
 // `media-server/src/token.js` verifies what comes out, so the two implementations have to agree

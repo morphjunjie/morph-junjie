@@ -6,6 +6,7 @@ return {
     -- messages are keyed by it. Add / remove / rename freely.
     PublicRooms = {
         { id = 'general', name = 'City General',    topic = 'Anything goes — keep it civil.' },
+        { id = 'market',  name = 'The Black Market', topic = 'Buy, sell, trade. No questions asked.' },
         { id = 'grid',    name = 'Off the Grid',     topic = "For people who'd rather not be found." },
         { id = 'night',   name = 'Night Shift',      topic = 'Late-night crew only.' },
         { id = 'rumor',   name = 'Rumor Mill',       topic = 'What did you hear?' },

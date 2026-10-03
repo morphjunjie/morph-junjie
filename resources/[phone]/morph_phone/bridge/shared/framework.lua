@@ -18,7 +18,7 @@ local function detect()
         return { name = 'nd', qb = false }
     end
     if GetResourceState('morph_junjie') == 'started' then
-        return { name = 'mj', qb = true }
+        return { name = 'qbx', qb = true }
     end
     if GetResourceState('ox_core') == 'started' then
         return { name = 'ox', qb = false }

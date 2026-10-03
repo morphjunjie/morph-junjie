@@ -1,4 +1,5 @@
 local serverConfig = require 'config.server'.server
+local characterConfig = require 'config.server'.characters
 local loggingConfig = require 'config.server'.logging
 local serverName = require 'config.shared'.serverName
 local storage = require 'server.storage.main'
@@ -73,32 +74,17 @@ local function getIdentifiers(source)
 end
 
 -- Player Connecting
-local STEP_DELAY = 3000
-local DATABASE_TIMEOUT = 60
-
----@param deferrals Deferrals
----@param message string
----@param delay? number
-local function updateWithDelay(deferrals, message, delay)
-    deferrals.update(message)
-    Wait(delay or STEP_DELAY)
-end
-
 ---@param name string
 ---@param _ any
 ---@param deferrals Deferrals
 local function onPlayerConnecting(name, _, deferrals)
     local src = source --[[@as string]]
     local license = GetPlayerIdentifierByType(src, 'license2') or GetPlayerIdentifierByType(src, 'license')
+    local identifiers = getIdentifiers(src)
     deferrals.defer()
 
+    -- Mandatory wait
     Wait(0)
-
-    local CONNECT_DELAY = 6
-    for i = CONNECT_DELAY, 1, -1 do
-        deferrals.update(locale('info.connecting_wait', i))
-        Wait(1000)
-    end
 
     if serverConfig.closed then
         if not IsPlayerAceAllowed(src, 'qbadmin.join') then
@@ -117,46 +103,36 @@ local function onPlayerConnecting(name, _, deferrals)
 
     local databaseTime = os.clock()
     local databasePromise = promise.new()
-    local handled = false
 
+    -- conduct database-dependant checks
     CreateThread(function()
-        updateWithDelay(deferrals, locale('info.fetching_user', name))
-
+        deferrals.update(locale('info.fetching_user', name))
         local userId = storage.fetchUserByIdentifier(license)
         if not userId then
-            local identifiers = getIdentifiers(src)
             identifiers.username = name
-            updateWithDelay(deferrals, locale('info.creating_user', name))
+
+            deferrals.update(locale('info.creating_user', name))
             storage.createUser(identifiers)
         end
 
-        updateWithDelay(deferrals, locale('info.checking_ban', name))
-
+        deferrals.update(locale('info.checking_ban', name))
         local success, err = pcall(function()
-            local isBanned, banCard = IsPlayerBanned(src --[[@as Source]])
+            local isBanned, Reason = IsPlayerBanned(src --[[@as Source]])
             if isBanned then
-                handled = true
-                Wait(0)
-                if banCard then
-                    deferrals.presentCard(banCard)
-                end
+                Wait(0) -- Mandatory wait
+                deferrals.done(Reason)
             end
         end)
 
-        if handled then return end
-
         if serverConfig.whitelist and success then
-            updateWithDelay(deferrals, locale('info.checking_whitelisted', name))
+            deferrals.update(locale('info.checking_whitelisted', name))
             success, err = pcall(function()
                 if not IsWhitelisted(src --[[@as Source]]) then
-                    handled = true
-                    Wait(0)
+                    Wait(0) -- Mandatory wait
                     deferrals.done(locale('error.not_whitelisted'))
                 end
             end)
         end
-
-        if handled then return end
 
         if not success then
             databasePromise:reject(err)
@@ -169,10 +145,13 @@ local function onPlayerConnecting(name, _, deferrals)
         lib.print.error(err)
     end
 
+    -- wait for database to finish
     databasePromise:next(function()
-        if handled then return end
         deferrals.update(locale('info.join_server', name, serverName))
+
+        -- Mandatory wait
         Wait(0)
+
         if queue then
             queue.awaitPlayerQueue(src --[[@as Source]], license, deferrals)
         else
@@ -180,15 +159,17 @@ local function onPlayerConnecting(name, _, deferrals)
         end
     end, onError):next(function() end, onError)
 
+    -- if conducting db checks for too long then raise error
     while databasePromise.state == 0 do
-        if handled then return end
-        if os.clock() - databaseTime > DATABASE_TIMEOUT then
+        if os.clock() - databaseTime > 30 then
             deferrals.done(locale('error.connecting_database_timeout'))
             error(locale('error.connecting_database_timeout'))
             break
         end
         Wait(1000)
     end
+
+    -- Add any additional defferals you may need!
 end
 
 AddEventHandler('playerConnecting', onPlayerConnecting)
@@ -208,7 +189,16 @@ end)
 -- `if LocalPlayer.state.isLoggedIn then` for the client side
 -- `if Player(source).state.isLoggedIn then` for the server side
 RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
-    Player(source --[[@as Source]]).state:set('isLoggedIn', true, true)
+    local src = source --[[@as Source]]
+    local player = GetPlayer(src)
+    if not player or Player(src).state.isLoggedIn then return end
+    Player(src).state:set('isLoggedIn', true, true)
+
+    -- morph_medical restores health and death/laststand together. A late callback
+    -- from core must not overwrite its resurrected ped's health.
+    if characterConfig.enableHealthInitialization ~= false and GetResourceState('morph_medical') ~= 'started' then
+        lib.callback.await('morph_junjie:client:setHealth', src, player.PlayerData.metadata.health or 200)
+    end
 end)
 
 ---@param source Source

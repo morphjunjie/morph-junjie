@@ -20,6 +20,12 @@ if config.Phone.WarnAboutTurn ~= false and not hasTurn then
     boot.warn('^3[morph_phone]^0 set sd_cf_turn_token_id + sd_cf_turn_api_token (free, see the docs), or WarnAboutTurn = false in configs/phone.lua.')
 end
 
+-- A fixed username and password is handed to every player's browser, where it can be copied and
+-- used from anywhere to push traffic through the owner's relay.
+if ice.fixedRelayShared() then
+    boot.warn('^3[morph_phone]^0 sd_phone_turn_username/credential is one TURN login shared by every player and can be copied out of the game. Use sd_phone_turn_secret (coturn static-auth-secret) instead.')
+end
+
 -- Authoritative call callbacks: thin delegates into server.calls.actions.
 lib.callback.register('morph_phone:server:call:dial', function(src, payload) return actions.dial(src, payload) end)
 lib.callback.register('morph_phone:server:call:accept', function(src, payload) return actions.accept(src, payload) end)
@@ -35,7 +41,7 @@ RegisterNetEvent('morph_phone:server:call:speaker', function(on)
 end)
 
 -- Video calling: the ICE config is request/response; the rest are one-way signaling relays.
-lib.callback.register('morph_phone:server:call:video:config', function() return actions.iceConfig() end)
+lib.callback.register('morph_phone:server:call:video:config', function(src) return actions.iceConfig(src) end)
 RegisterNetEvent('morph_phone:server:call:video:request', function() actions.videoRequest(source) end)
 RegisterNetEvent('morph_phone:server:call:video:accept',  function() actions.videoAccept(source) end)
 RegisterNetEvent('morph_phone:server:call:video:stop',    function() actions.videoStop(source) end)

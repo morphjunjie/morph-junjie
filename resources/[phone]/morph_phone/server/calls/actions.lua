@@ -14,6 +14,9 @@ local moderation = require 'server.admin.moderation'
 local payphones = require 'server.payphone.store'
 ---@type table Cell service (server.service): authoritative signal level per player.
 local service  = require 'server.service'
+---@type table State bag publisher (server.statebags): releases a group-ring target who declines, since
+---no lifecycle event covers a ring that carries on without them.
+local statebags = require 'server.statebags'
 ---@type table Voice backend (bridge.server.voice): call-channel membership and speakerphone over
 ---whichever voice script is running.
 local voice    = require 'bridge.server.voice'
@@ -1126,6 +1129,7 @@ function actions.decline(source, payload)
     if ring then
         if ring.targets[source] then
             ring.targets[source] = nil
+            statebags.dropRinger(channel, source)
             TriggerClientEvent('morph_phone:client:call:ended', source, { channel = channel, reason = 'declined' })
             if next(ring.targets) == nil then
                 groupRings[channel] = nil
@@ -1467,21 +1471,14 @@ function actions.videoStop(src)
     if peer then TriggerClientEvent('morph_phone:client:call:video:stop', peer) end
 end
 
----Returns ICE servers for the browser RTCPeerConnection: the shared STUN + Cloudflare TURN set
----every WebRTC feature uses, plus a static relay when the sd_phone_turn_* convars are set.
+---Returns ICE servers for the browser RTCPeerConnection: STUN, this player's own Cloudflare TURN
+---credential, and the self-hosted relay when the sd_phone_turn_* convars are set.
+---@param src number
 ---@return { iceServers: table }
-function actions.iceConfig()
-    local servers = {}
-    for _, entry in ipairs(ice.servers()) do servers[#servers + 1] = entry end
-
-    local turn = GetConvar('sd_phone_turn_url', '')
-    if turn ~= '' then
-        servers[#servers + 1] = {
-            urls       = turn,
-            username   = GetConvar('sd_phone_turn_username', ''),
-            credential = GetConvar('sd_phone_turn_credential', ''),
-        }
-    end
+function actions.iceConfig(src)
+    local servers = ice.servers(src)
+    local relay = ice.fixedRelay(src)
+    if relay then servers[#servers + 1] = relay end
     return { iceServers = servers }
 end
 

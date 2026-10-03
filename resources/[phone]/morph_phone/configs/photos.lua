@@ -23,6 +23,16 @@ return {
     -- file size against visible compression artefacts.
     Quality = 0.85,
 
+    -- FiveM for GTAV Enhanced can hand the phone a black game view, which blacks out the Camera
+    -- viewfinder. This shows the game's own view element over the viewfinder instead. It is a
+    -- live preview only: a photo or clip taken on Enhanced still saves black until Cfx fixes
+    -- game view capture. Legacy servers are never affected by this setting.
+    --   'auto'  = only on an Enhanced server, and only while the view reads back black
+    --   'probe' = the same check on any server, for an Enhanced build 'auto' fails to recognise
+    --   'force' = always show the game's view element, for testing
+    --   false   = never
+    EnhancedGameView = 'auto',
+
     -- Per-player retention cap. Once exceeded, oldest photos are pruned to
     -- keep the row count bounded.
     MaxPhotosPerPlayer = 200,
@@ -50,19 +60,39 @@ return {
     -- connections you know are fast, and lower it if you see packet loss during uploads.
     UploadBytesPerSec = 262144,
 
-    -- Lets the phone upload a captured clip straight to Fivemanage over HTTPS, instead of pushing
-    -- it to the server over the game network first.
+    -- Lets phones upload camera clips, voice memos, voicemails, call recordings, voice messages
+    -- and bodycam footage straight to Fivemanage over HTTPS, instead of sending them through the
+    -- server over the game network first. That avoids the packet loss a big upload causes.
     --
-    -- UploadBytesPerSec above only decides how a clip is paced onto the ENet channel, and pacing
-    -- is a trade, not a fix: the uploading player's packet loss climbs for as long as the transfer
-    -- runs whatever rate you pick. With this on, the media never touches the game network at all,
-    -- so there is nothing to pace. The server still mints the upload slot and still checks what
-    -- comes back before it is saved, so the media key stays server-side as it always has.
+    -- OFF BY DEFAULT, AND READ THIS BEFORE TURNING IT ON. To do this the server hands the player a
+    -- temporary Fivemanage upload link. Fivemanage lets that link be used for ANY number of uploads
+    -- of ANY size until it expires, and a link has to last long enough for a real clip to finish
+    -- (one to ten minutes). A cheater with a modified client can use that window to fill your
+    -- Fivemanage storage, and you pay for it. The phone limits how often links are handed out,
+    -- charges each one against UploadLimits below, and cuts off players whose links go unused,
+    -- but none of that can stop what happens inside a link's lifetime.
     --
-    -- Set false to force every capture back through the server. That also happens on its own when
-    -- Provider is 'qbox' (there is no presigned equivalent) or when Fivemanage cannot be reached,
-    -- so turning it off changes nothing except making the choice permanent.
-    DirectUpload = true,
+    -- With this off, every upload goes through your server first, where UploadLimits applies to
+    -- every byte before anything reaches Fivemanage. Nothing else changes.
+    --
+    -- This replaces the old DirectUpload setting, which is no longer read.
+    AllowDirectUpload = false,
+
+    -- Ceilings on how much players can upload to your media provider (Fivemanage or Qbox). Every
+    -- camera photo and clip, voice memo, voicemail, call recording, voice message, bodycam
+    -- recording and Clout voiceover counts. The defaults are far above what a normal player uses.
+    --
+    -- A player with no character loaded can never upload. Limits are per FiveM account (license),
+    -- so switching or using several characters does not give a player more.
+    UploadLimits = {
+        CooldownMs    = 1000,  -- minimum gap between two uploads from one account
+        WindowMinutes = 10,    -- length of the rolling window the next three use
+        PlayerMB      = 200,   -- MB one account may upload per window
+        PlayerUploads = 120,   -- uploads one account may make per window, whatever their size
+        PlayerDailyMB = 2048,  -- MB one account may upload per day (UTC); survives restarts. 0 = off
+        ServerMB      = 3072,  -- MB the WHOLE server may upload per window, however many players. 0 = off
+        ServerDailyMB = 20480, -- MB the WHOLE server may upload per day (UTC); survives restarts. 0 = off
+    },
 
     -- Logs each capture upload to the server console: the size, the slice count, how long it
     -- took and the throughput it actually achieved. Off by default because it is one line per

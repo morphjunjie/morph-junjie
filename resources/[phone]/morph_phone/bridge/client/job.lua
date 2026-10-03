@@ -21,7 +21,7 @@ local listeners = {}
 ---The framework's player-data table, or nil before the player has loaded.
 ---@return table|nil
 local function playerData()
-    if framework.name == 'mj' then
+    if framework.name == 'qbx' then
         local ok, data = pcall(function() return exports.morph_junjie:GetPlayerData() end)
         return ok and data or nil
     end

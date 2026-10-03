@@ -19,5 +19,6 @@ proxyCallback('morph_phone:accounts:suggestCode',  'morph_phone:server:accounts:
 proxyCallback('morph_phone:accounts:myNumber',     'morph_phone:server:accounts:myNumber')
 proxyCallback('morph_phone:accounts:myEmail',      'morph_phone:server:accounts:myEmail')
 proxyCallback('morph_phone:accounts:savePassword',   'morph_phone:server:accounts:savePassword')
+proxyCallback('morph_phone:accounts:saveCustomPassword', 'morph_phone:server:accounts:saveCustomPassword')
 proxyCallback('morph_phone:accounts:listPasswords',  'morph_phone:server:accounts:listPasswords')
 proxyCallback('morph_phone:accounts:deletePassword', 'morph_phone:server:accounts:deletePassword')

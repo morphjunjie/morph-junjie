@@ -57,6 +57,13 @@ function locale.load(lang)
     local path = ('locales/%s.json'):format(lang)
     local file = LoadResourceFile(GetCurrentResourceName(), path)
 
+    local base = lang:match('^(%a%a)[-_]')
+    if not file and base then
+        lang = base:lower()
+        path = ('locales/%s.json'):format(lang)
+        file = LoadResourceFile(GetCurrentResourceName(), path)
+    end
+
     if not file and lang ~= 'en' then
         print('^3[morph_phone] Falling back to English locale^0')
         path = 'locales/en.json'
@@ -88,7 +95,7 @@ end)
 local CANDIDATES = {
     'af', 'ar', 'bg', 'bs', 'ca', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fa', 'fi', 'fr',
     'he', 'hi', 'hr', 'hu', 'id', 'is', 'it', 'ja', 'ko', 'lt', 'lv', 'ms', 'nb', 'nl', 'no',
-    'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sq', 'sr', 'sv', 'th', 'tr', 'uk', 'vi', 'zh',
+    'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sq', 'sr', 'sv', 'th', 'tr', 'uk', 'vi', 'zh', 'zh-tw',
 }
 
 ---@type string[]|nil Probe result, held for the resource lifetime: the files cannot change

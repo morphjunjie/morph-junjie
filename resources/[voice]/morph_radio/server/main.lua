@@ -52,6 +52,18 @@ local function checkCooldown(cooldowns, source, duration)
     return true
 end
 
+local function canUpdateRadio(source)
+    local time = os.time()
+    local rate = radioCooldown[source]
+    if not rate or rate.time ~= time then
+        radioCooldown[source] = { time = time, count = 1 }
+        return true
+    end
+    if rate.count >= 10 then return false end
+    rate.count += 1
+    return true
+end
+
 local function hasChannelPermission(player, channel)
     local restriction = Shared.RestrictedChannels[channel]
     if not restriction then return true end
@@ -217,13 +229,12 @@ RegisterNetEvent('morph_radio:server:removejammer', function(id)
     local src = source
     local entity, index = getJammer(id)
     if not entity or not entity.canRemove or not isNearJammer(src, entity) then return end
-    if DoesEntityExist(entity.entity) then
-        DeleteEntity(entity.entity)
-    end
-    table.remove(jammer, index)
+
+    local shouldRefund = GetEntityHealth(entity.entity) > 0
+    DeleteEntity(entity.entity)
     TriggerClientEvent('morph_radio:client:removejammer', -1, id)
-    exports.morph_inv:AddItem(src, 'jammer', 1)
-    exports.morph_junjie:Notify(src, 'Jammer removed and returned to inventory.', 'success')
+    table.remove(jammer, index)
+    if shouldRefund then exports.morph_inv:AddItem(src, 'jammer', 1) end
 end)
 
 RegisterNetEvent('morph_radio:server:changeJammerRange', function(id, range)
@@ -250,12 +261,12 @@ RegisterNetEvent('morph_radio:server:addallowedchannel', function(id, allowedCha
     TriggerClientEvent('morph_radio:client:addallowedchannel', -1, id, entity.allowedChannels)
 end)
 
-RegisterNetEvent('morph_radio:server:addToRadioChannel', function(channel)
+RegisterNetEvent('morph_radio:server:addToRadioChannel', function(channel, username)
     local src = source
     if not isFiniteNumber(channel) or channel <= 0 or channel > Shared.MaxFrequency then return end
 
     local normalizedChannel = math.floor(channel * 100 + 0.5) / 100
-    if math.abs(channel - normalizedChannel) > 0.00001 or not checkCooldown(radioCooldown, src, 1) then return end
+    if math.abs(channel - normalizedChannel) > 0.00001 or not canUpdateRadio(src) then return end
     channel = normalizedChannel
 
     local player = exports.morph_junjie:GetPlayer(src)
@@ -267,8 +278,13 @@ RegisterNetEvent('morph_radio:server:addToRadioChannel', function(channel)
     end
 
     local charinfo = player.PlayerData.charinfo
+    -- Custom call signs are an existing radio setting; bound them before replication.
+    local displayName = type(username) == 'string' and username:gsub('%c', ''):sub(1, 64) or ''
+    if displayName:match('^%s*$') then
+        displayName = ('%s %s'):format(charinfo.firstname, charinfo.lastname)
+    end
     channels[channel][tostring(src)] = {
-        name = ('%s %s'):format(charinfo.firstname, charinfo.lastname),
+        name = displayName,
         isTalking = false
     }
     currentChannel[src] = channel

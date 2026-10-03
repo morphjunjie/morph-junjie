@@ -285,18 +285,21 @@ set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
 ```
 
 These are convars rather than config entries so credentials never land in the repo. morph_phone mints
-short-lived credentials from them and refreshes automatically, so nothing expires on you.
+a credential for each player from them, refreshes it automatically, and revokes it when that player
+disconnects, so a copied credential stops working when its owner leaves.
 
-Prefer your own relay? A fixed TURN server works too, and can be used alongside the above:
+Prefer your own relay? Self-hosted [coturn](https://github.com/coturn/coturn) works too, and can be
+used alongside the above. Give it a `static-auth-secret` and morph_phone issues each player their own
+expiring login:
 
 ```cfg
-set sd_phone_turn_url        "turn:turn.example.com:3478"
-set sd_phone_turn_username   "your-username"
-set sd_phone_turn_credential "your-password"
+set sd_phone_turn_url    "turn:turn.example.com:3478"
+set sd_phone_turn_secret "the static-auth-secret from turnserver.conf"
 ```
 
-Use this form for self-hosted [coturn](https://github.com/coturn/coturn) or a static-credential
-provider such as Metered. Note that Cloudflare and Twilio issue **expiring** credentials through an
+A fixed `sd_phone_turn_username` / `sd_phone_turn_credential` pair still works (for example with
+Metered), but it is one login shared by every player that anyone can copy out of the game, so the
+server warns about it at boot. Note that Cloudflare and Twilio issue **expiring** credentials through an
 API, so their values cannot be pasted here; use the convar pair above for Cloudflare instead.
 
 morph_phone prints one reminder line at boot while no relay is configured; silence it with

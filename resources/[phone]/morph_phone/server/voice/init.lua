@@ -69,9 +69,9 @@ local function nearbyTargets(src)
     return out
 end
 
----ICE servers for this client's peer connections. Read-only; served from the shared cache.
-lib.callback.register('morph_phone:server:voice:ice', function()
-    return { success = true, data = { iceServers = ice.servers() } }
+---ICE servers for this client's peer connections, carrying this player's own TURN credential.
+lib.callback.register('morph_phone:server:voice:ice', function(src)
+    return { success = true, data = { iceServers = ice.servers(src) } }
 end)
 
 ---@type integer Nearby-lookup budget window in ms.
@@ -84,9 +84,9 @@ local NEARBY_PER_WINDOW = 30
 ---empty when the feature is disabled or the caller is over budget.
 lib.callback.register('morph_phone:server:voice:nearby', function(src)
     if not enabled() or not util.rateLimit(player.getIdentifier(src), 'voice:nearby', NEARBY_WINDOW, NEARBY_PER_WINDOW) then
-        return { success = true, data = { targets = {}, iceServers = ice.servers() } }
+        return { success = true, data = { targets = {}, iceServers = ice.servers(src) } }
     end
-    return { success = true, data = { targets = nearbyTargets(src), iceServers = ice.servers() } }
+    return { success = true, data = { targets = nearbyTargets(src), iceServers = ice.servers(src) } }
 end)
 
 ---@type table<string, boolean> Signal kinds the mesh actually sends (web/src/media/nearbyVoice.ts).

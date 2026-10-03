@@ -23,7 +23,7 @@ local function chooseBackend()
                 title       = data.title,
                 description = data.description,
                 type        = data.type or 'inform',
-                position    = data.position or 'bottom',
+                position    = data.position or 'top-right',
                 duration    = data.duration or 3000,
             })
         end

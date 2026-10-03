@@ -4,7 +4,7 @@ local WEAPONS = exports.morph_junjie:GetWeapons()
 
 ---blocks until ped is no longer moving
 function WaitForPlayerToStopMoving()
-    local timeOut = 10000
+    local timeOut = 1000
     while GetEntitySpeed(cache.ped) > 0.1 and IsPedRagdoll(cache.ped) and timeOut > 1 do
         timeOut -= 10 Wait(10)
     end
@@ -23,7 +23,10 @@ end
 
 ---remove last stand mode from player.
 function EndLastStand()
-    TaskPlayAnim(cache.ped, LastStandDict, 'exit', 1.0, 8.0, -1, 1, -1, false, false, false)
+    -- Only get up after a real revive, never while transitioning to death.
+    if DeathState == sharedConfig.deathState.ALIVE then
+        TaskPlayAnim(cache.ped, LastStandDict, 'exit', 1.0, 8.0, -1, 1, -1, false, false, false)
+    end
     LaststandTime = 0
     TriggerServerEvent('morph_medical:server:onPlayerLaststandEnd')
 end
@@ -39,8 +42,8 @@ local function logPlayerKiller()
     local killerId = NetworkGetPlayerIndexFromPed(killer)
     local killerName = killerId ~= -1 and (' %s (%d)'):format(GetPlayerName(killerId), GetPlayerServerId(killerId)) or locale('info.self_death')
     local weaponItem = WEAPONS[killerWeapon]
-    local weaponLabel = locale('info.wep_unknown') or (weaponItem and weaponItem.label)
-    local weaponName = locale('info.wep_unknown') or (weaponItem and weaponItem.name)
+    local weaponLabel = (weaponItem and weaponItem.label) or locale('info.wep_unknown')
+    local weaponName = (weaponItem and weaponItem.name) or locale('info.wep_unknown')
     local message = locale('logs.death_log_message', killerName, GetPlayerName(cache.playerId), weaponLabel, weaponName)
 
     lib.callback.await('morph_medical:server:log', false, 'playerKiller', message)
@@ -67,11 +70,16 @@ function StartLastStand(attacker, weapon)
     startLastStandLock = true
     TriggerEvent('morph_inv:disarm', cache.playerId, true)
     WaitForPlayerToStopMoving()
+    -- Load before resurrection so streaming cannot leave the player standing.
+    lib.requestAnimDict(LastStandDict)
+    lib.requestAnimDict('dead')
+    lib.requestAnimDict('veh@low@front_ps@idle_duck')
     TriggerServerEvent('InteractSound_SV:PlayOnSource', 'demo', 0.1)
     LaststandTime = config.laststandReviveInterval
     ResurrectPlayer()
     SetEntityHealth(cache.ped, 150)
     SetDeathState(sharedConfig.deathState.LAST_STAND)
+    PlayLastStandAnimation()
     TriggerEvent('morph_medical:client:onPlayerLaststand', attacker, weapon)
     TriggerServerEvent('morph_medical:server:onPlayerLaststand', attacker, weapon)
     CreateThread(function()

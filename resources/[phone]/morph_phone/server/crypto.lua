@@ -97,4 +97,14 @@ function crypto.randomHex(bytes)
     return (okCall and type(res) == 'string') and res or nil
 end
 
+---HMAC-SHA1 of `msg` under `key`, base64. Nil when the helper is unavailable.
+---@param key string
+---@param msg string
+---@return string|nil b64
+function crypto.hmacSha1Base64(key, msg)
+    if not crypto.available() then return nil end
+    local okCall, res = call('sdCryptoHmacSha1Base64', key, msg)
+    return (okCall and type(res) == 'string') and res or nil
+end
+
 return crypto

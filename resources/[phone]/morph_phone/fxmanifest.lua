@@ -4,7 +4,7 @@ lua54 'yes'
 
 name 'morph_phone'
 author 'Samuel#0008'
-version '1.0.2'
+version '1.0.5'
 description 'Full-featured in-game smartphone: 46 apps covering calls, messages, mail, social feeds, banking, stocks, marketplace, garages, housing, jobs, maps, camera, music and games, plus home screen widgets, icon themes you can design, cell tower and Wi-Fi coverage, payphones, unique phones and SIM cards, an API for third-party apps and widgets, and lb-phone compatibility'
 
 shared_scripts {
@@ -35,11 +35,13 @@ files {
     'client/**.lua',
     'locales/*.json',
     'web/build/index.html',
+    'web/build/uploader.html',
     'web/build/sdphone-sdk.js',
     'web/build/sdphone-sdk.d.ts',
     'web/build/assets/*.js',
     'web/build/assets/*.css',
     'web/build/assets/*.png',
+    'web/build/assets/*.glb',
     'web/build/assets/*.jpg',
     'web/build/assets/*.webp',
     'web/build/assets/*.svg',
@@ -55,6 +57,7 @@ dependencies {
 }
 
 provide 'lb-phone'
+provide 'lb-tablet'
 provide 'yseries'
 
 provide 'qs-smartphone'

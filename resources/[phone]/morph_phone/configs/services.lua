@@ -1,7 +1,7 @@
 -- Services app. Maps framework JOBS to "companies" the phone surfaces: a public directory
 -- (locate / call / message) plus boss management of the company's shared balance and employee
 -- roster. Society money + employee reads route through bridge/server/society.lua (adapts
--- qb-banking / morph_bank / morph_manage / qb-management / esx_addonaccount).
+-- qb-banking / morph_bank / qbx_management / qb-management / esx_addonaccount).
 return {
     -- ESX-ONLY fallback. On QBCore/QBox boss status is read from the grade's
     -- `isboss` flag and this is ignored. On ESX (no isboss flag) it's the minimum

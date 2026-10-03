@@ -17,27 +17,6 @@ local function openFingerprintUi()
     SetNuiFocus(true, true)
 end
 
-local function setCarItemsInfo()
-    local items = {}
-    for _, item in pairs(config.carItems) do
-        local itemInfo = exports.morph_inv:Items()[item.name:lower()]
-        items[item.slot] = {
-            name = itemInfo.name,
-            amount = tonumber(item.amount),
-            info = item.info,
-            label = itemInfo.label,
-            description = itemInfo.description or '',
-            weight = itemInfo.weight,
-            type = itemInfo.type,
-            unique = itemInfo.unique,
-            useable = itemInfo.useable,
-            image = itemInfo.image,
-            slot = item.slot
-        }
-    end
-    config.carItems = items
-end
-
 local function doCarDamage(currentVehicle, veh)
     local smash = false
     local damageOutside = false
@@ -83,7 +62,7 @@ local function takeOutImpound(vehicle)
     local coords = sharedConfig.locations.impound[currentGarage]
     if not coords then return end
 
-    local netId = lib.callback.await('morph_policejob:server:spawnVehicle', false, vehicle.vehicle, coords, vehicle.plate, vehicle.id)
+    local netId = lib.callback.await('morph_police:server:spawnVehicle', false, vehicle.vehicle, coords, vehicle.plate, vehicle.id)
 
     local veh = lib.waitFor(function()
         if NetworkDoesEntityExistWithNetworkId(netId) then
@@ -108,7 +87,7 @@ local function takeOutVehicle(vehicleInfo)
         pattern = pattern..'1'
     end
     local plate = sharedConfig.policePlatePrefix..lib.string.random(pattern):upper()
-    local netId = lib.callback.await('morph_policejob:server:spawnVehicle', false, vehicleInfo, coords, plate, true)
+    local netId = lib.callback.await('morph_police:server:spawnVehicle', false, vehicleInfo, coords, plate, true)
 
     local veh = lib.waitFor(function()
         if NetworkDoesEntityExistWithNetworkId(netId) then
@@ -118,7 +97,6 @@ local function takeOutVehicle(vehicleInfo)
 
     assert(veh ~= 0, 'Something went wrong spawning the vehicle')
 
-    setCarItemsInfo()
     SetEntityHeading(veh, coords.w)
     SetVehicleFuelLevel(veh, 100.0)
     if config.vehicleSettings[vehicleInfo] then
@@ -219,7 +197,7 @@ local function spawnHelicopter()
     if not inHelicopter then return end
     local plyCoords = GetEntityCoords(cache.ped)
     local coords = vec4(plyCoords.x, plyCoords.y, plyCoords.z, GetEntityHeading(cache.ped))
-    local netId = lib.callback.await('morph_policejob:server:spawnVehicle', false, config.policeHelicopter, coords, 'ZULU'..lib.string.random('1111'), true)
+    local netId = lib.callback.await('morph_police:server:spawnVehicle', false, config.policeHelicopter, coords, 'ZULU'..lib.string.random('1111'), true)
     local heli = lib.waitFor(function()
         if NetworkDoesEntityExistWithNetworkId(netId) then
             return NetToVeh(netId)
@@ -366,7 +344,7 @@ RegisterNetEvent('police:client:ImpoundVehicle', function(fullImpound, price)
 
     if cache.vehicle or #(GetEntityCoords(cache.ped) - GetEntityCoords(vehicle)) > 5.0 then return end
 
-    if lib.progressBar({
+    if lib.progressCircle({
         duration = 5000,
         position = 'bottom',
         label = locale('progressbar.impound'),
@@ -400,8 +378,7 @@ RegisterNetEvent('police:client:ImpoundVehicle', function(fullImpound, price)
     })
     then
         local plate = qbx.getVehiclePlate(vehicle)
-        TriggerServerEvent('police:server:Impound', plate, fullImpound, price, bodyDamage, engineDamage, totalFuel)
-        DeleteVehicle(vehicle)
+        TriggerServerEvent('police:server:Impound', plate, fullImpound, price, bodyDamage, engineDamage, totalFuel, NetworkGetNetworkIdFromEntity(vehicle))
         exports.morph_junjie:Notify(locale('success.impounded'), 'success')
     else
         exports.morph_junjie:Notify(locale('error.canceled'), 'error')

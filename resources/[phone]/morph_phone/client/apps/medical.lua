@@ -70,7 +70,8 @@ local function scan(entity)
     -- splash, then lockscreen - and a push that lands mid-sequence is thrown away with the rest of
     -- the pre-open state, which reads in game as the phone opening to a lockscreen and no card.
     if not isOpen() then
-        pcall(function() exports['morph_phone']:open() end)
+        local ok, opened = pcall(function() return exports['morph_phone']:open({ silent = true }) end)
+        if ok and opened == false then return end
         local waited = 0
         while not isOpen() and waited < 3000 do
             Wait(50)

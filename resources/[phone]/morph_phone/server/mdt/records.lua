@@ -249,6 +249,32 @@ end
 ---@param citizenid string
 ---@return table[] priors
 local function priorsFor(me, citizenid)
+    if me and me.trusted then
+        local rows = MySQL.query.await([[
+            SELECT r.ref, c.code, c.label, c.class, c.count, r.title, r.created_at
+            FROM phone_mdt_report_charges c
+            JOIN phone_mdt_reports r ON r.id = c.report_id
+            WHERE c.citizenid = ? AND c.expunged = 0 AND r.domain = ?
+            ORDER BY r.created_at DESC
+            LIMIT ?
+        ]], { citizenid, me.domain or 'leo', PRIORS_LIMIT }) or {}
+
+        local out = {}
+        for i = 1, #rows do
+            local row = rows[i]
+            out[i] = {
+                reportRef   = row.ref,
+                reportTitle = row.title or row.ref,
+                code        = row.code,
+                label       = row.label or row.code,
+                class       = row.class or 'infraction',
+                count       = tonumber(row.count) or 1,
+                date        = tonumber(row.created_at) or 0,
+            }
+        end
+        return out
+    end
+
     local clause, args = paperwork.visibility(me)
     local params = { citizenid }
     for i = 1, #args do params[#params + 1] = args[i] end
@@ -380,6 +406,19 @@ local function composeVehicle(plate)
     out.updatedBy = overlay.updatedBy
     out.updatedAt = overlay.updatedAt
     return out
+end
+
+---Trusted server-resource reads for compatibility exports without a player source. These are not
+---used by the terminal: the LB server exports are resource-to-resource calls, while the normal
+---personsGet/vehiclesGet handlers remain permission-gated.
+function records.exportPerson(citizenid, domain)
+    local cid = util.limitedString(type(citizenid) == 'string' and citizenid or tostring(citizenid or ''), 64)
+    if not cid or (domain ~= 'leo' and domain ~= 'ems') then return nil end
+    return composePerson({ trusted = true, domain = domain }, cid)
+end
+
+function records.exportVehicle(plate)
+    return composeVehicle(plate)
 end
 
 records.personsSearch = access.gated('persons.view', function(_, payload)

@@ -17,13 +17,13 @@ local society = {}
 -- Society money provider export shapes:
 --   qb-banking      : GetAccountBalance / AddMoney / RemoveMoney (account, amount, reason)
 --   morph_bank : getAccountMoney / addAccountMoney / removeAccountMoney (account, amount)
---   morph_manage  : GetAccount / AddMoney / RemoveMoney (account[, amount])
+--   qbx_management  : GetAccount / AddMoney / RemoveMoney (account[, amount])
 --   qb-management   : GetAccount / AddMoney / RemoveMoney (account[, amount])
 --   esx_addonaccount / esx_society : esx_addonaccount:getSharedAccount('society_<job>') ->
 --                     { money, addMoney, removeMoney }
 ---@type string[] Society money providers, in detection-priority order.
 local KNOWN = {
-    'qb-banking', 'morph_bank', 'morph_manage', 'qb-management',
+    'qb-banking', 'morph_bank', 'qbx_management', 'qb-management',
     'esx_addonaccount', 'esx_society',
 }
 
@@ -103,7 +103,7 @@ function society.getBalance(jobName, override)
             if ok and type(bal) == 'number' then return bal end
         end
 
-    elseif name == 'morph_manage' or name == 'qb-management' then
+    elseif name == 'qbx_management' or name == 'qb-management' then
         local ok, bal = pcall(function() return exports[name]:GetAccount(jobName) end)
         if ok and type(bal) == 'number' then return bal end
 
@@ -144,7 +144,7 @@ function society.addMoney(jobName, amount, reason, override)
         return try(function() return exports['qb-banking']:AddMoney(acc, amount, reason) end)
     elseif name == 'morph_bank' then
         return try(function() return exports['morph_bank']:addAccountMoney(override or jobName, amount) end)
-    elseif name == 'morph_manage' or name == 'qb-management' then
+    elseif name == 'qbx_management' or name == 'qb-management' then
         return try(function() return exports[name]:AddMoney(jobName, amount) end)
     elseif name == 'esx_addonaccount' or name == 'esx_society' then
         local done = false
@@ -183,7 +183,7 @@ function society.removeMoney(jobName, amount, reason, override)
         return try(function() return exports['qb-banking']:RemoveMoney(acc, amount, reason) end)
     elseif name == 'morph_bank' then
         return try(function() return exports['morph_bank']:removeAccountMoney(override or jobName, amount) end)
-    elseif name == 'morph_manage' or name == 'qb-management' then
+    elseif name == 'qbx_management' or name == 'qb-management' then
         return try(function() return exports[name]:RemoveMoney(jobName, amount) end)
     elseif name == 'esx_addonaccount' or name == 'esx_society' then
         local done = false

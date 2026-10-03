@@ -1,5 +1,7 @@
----@type fun(nuiAction: string, serverEvent: string) NUI->server pass-through registrar (client.nui).
+---@type fun(nuiAction: string, serverEvent: string, onAccepted?: fun(), transform?: fun(res: table)) NUI->server pass-through registrar (client.nui).
 local proxyCallback = require 'client.nui'
+---@type fun(res: table) Completes an HTTP upload slot with this client's server address (client.uploadurl).
+local uploadUrl = require 'client.uploadurl'
 
 -- Thin delegates into server/messages: thread listing, sending, group management, read
 -- receipts, deletes and reactions.
@@ -9,6 +11,7 @@ proxyCallback('morph_phone:messages:send',        'morph_phone:server:messages:s
 proxyCallback('morph_phone:messages:uploadVoice', 'morph_phone:server:messages:uploadVoice')
 proxyCallback('morph_phone:messages:voiceSlot', 'morph_phone:server:messages:voiceSlot')
 proxyCallback('morph_phone:messages:voiceDone', 'morph_phone:server:messages:voiceDone')
+proxyCallback('morph_phone:messages:httpSlot', 'morph_phone:server:messages:httpSlot', nil, uploadUrl)
 proxyCallback('morph_phone:messages:createGroup', 'morph_phone:server:messages:createGroup')
 proxyCallback('morph_phone:messages:addGroupMember', 'morph_phone:server:messages:addGroupMember')
 proxyCallback('morph_phone:messages:updateGroup', 'morph_phone:server:messages:updateGroup')

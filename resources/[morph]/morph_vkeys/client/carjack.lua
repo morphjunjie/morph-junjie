@@ -75,7 +75,7 @@ local function carjackVehicle(driver, vehicle)
         end
     end)
 
-    if lib.progressBar({
+    if lib.progressCircle({
         duration = config.carjackingTimeInMs,
         label = locale('progress.attempting_carjack'),
         position = 'bottom',
@@ -109,7 +109,7 @@ end
 ---@param weaponHash number The current weapon hash.
 ---@return boolean `true` if the weapon cannot be used to carjacking, `false` otherwise.
 local function getIsBlacklistedWeapon(weaponHash)
-    return qbx.array.contains(config.noCarjackWeapons, weaponHash)
+    return lib.table.contains(config.noCarjackWeapons, weaponHash)
 end
 
 local isWatchCarjackingAttemptRunning = false

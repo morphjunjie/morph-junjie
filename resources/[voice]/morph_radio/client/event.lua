@@ -51,7 +51,7 @@ end)
 
 RegisterNetEvent('morph_radio:client:usejammer', function()
     if not Shared.Jammer.permission or not (lib.table.contains(Shared.Jammer.permission, Radio.PlayerJob) or lib.table.contains(Shared.Jammer.permission, Radio.PlayerGang)) then
-        lib.notify({
+        return lib.notify({
             title = 'You dont have permission to use this item',
             type = 'error'
         })
@@ -288,7 +288,7 @@ AddEventHandler('gameEventTriggered', function(event, data)
 end)
 
 -- Checking this statebag instead of "isDead" so we can also catch the "last stand" state
-AddStateBagChangeHandler('morph_medic:deathState', ('player:%s'):format(cache.serverId), function(_, _, value)
+AddStateBagChangeHandler('morph_medical:deathState', ('player:%s'):format(cache.serverId), function(_, _, value)
     local isDead = value ~= 1 and true or false
     Radio.PlayerDead = isDead
     if value then

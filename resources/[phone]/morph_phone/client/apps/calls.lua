@@ -119,7 +119,7 @@ end)
 ---@param data table { channel: number, name?: string, number: string, video?: boolean }
 RegisterNetEvent('morph_phone:client:call:incoming', function(data)
     if config.Phone.OpenOnIncomingCall then
-        exports['morph_phone']:open()
+        exports['morph_phone']:open({ silent = true })
         Wait(200)
     end
     pushCall('morph_phone:call:incoming', data)

@@ -8,6 +8,10 @@ local store    = require 'server.photos.store'
 ---@type table Media URL ledger (server.media.ledger): every URL this server has ever hosted, for
 ---any app, which is what a claim is really measured against.
 local ledger   = require 'server.media.ledger'
+---@type table Shared upload budget (server.photos.mediaLimit): a slot is paid for when it is minted.
+local mediaLimit = require 'server.photos.mediaLimit'
+---@type table Player bridge (bridge.server.player): the character a slot is minted for.
+local player   = require 'bridge.server.player'
 
 ---@type table Presign module; the table returned at end of file. Mints one-shot upload slots so a
 ---client can put media straight into Fivemanage over ordinary HTTPS, and decides whether the URL
@@ -17,6 +21,14 @@ local ledger   = require 'server.media.ledger'
 ---from bytes it had in hand, so guard.photo could treat any phone_photos row as proof of
 ---ownership. Here the client reports the URL, and every check below is what keeps that inference
 ---true.
+---
+---What no check here can do is bound what lands in the bucket. Probed against the live API on
+---2026-09-16: one presigned URL accepts any number of uploads of any size until its token
+---expires, and the expiry is checked when an upload FINISHES, so it cannot be shortened below the
+---time a real clip takes to send. A player holding a slot can fill the owner's storage for as long
+---as it lives, and never report back. That is why the path is opt-in (AllowDirectUpload), why a
+---slot is paid for in full against the upload budget the moment it is minted rather than when it
+---is claimed, and why a player whose slots keep coming back unused loses the path.
 local presign = {}
 
 ---@type table Photos config (configs/photos.lua): the DirectUpload switch.
@@ -33,6 +45,26 @@ local MAX_URL_CHARS <const> = 512
 
 ---@type integer How often expired slots are swept, in ms.
 local SWEEP_MS <const> = 60000
+
+---@type integer Minimum gap between slot mints for one character (ms). Shared by every app that
+---mints, so a client cannot round-robin between them.
+local MINT_COOLDOWN_MS <const> = 5000
+
+---@type integer Upload speed a slot's lifetime is sized for, in bytes per second. The token has to
+---outlive a real upload of the largest file the caller accepts on a slow uplink, because the
+---provider checks the expiry when the upload ends; anything shorter only breaks honest players.
+local TTL_FLOOR_BPS <const> = 256 * 1024
+---@type integer Shortest slot lifetime, in seconds.
+local TTL_MIN_S <const> = 60
+---@type integer Longest slot lifetime, in seconds.
+local TTL_MAX_S <const> = 600
+
+---@type integer Unused, expired or refused slots a character may rack up before losing the path.
+local STRIKE_LIMIT <const> = 3
+---@type integer Seconds a strike counts for.
+local STRIKE_WINDOW_S <const> = 3600
+---@type integer Seconds a character is kept off the direct path once it reaches the limit.
+local LOCKOUT_S <const> = 3600
 
 ---@type table<string, table<string, boolean>> Extensions a claim may end in, each mapped to the
 ---kinds that extension can legitimately be. The provider names the stored
@@ -61,10 +93,19 @@ local MEDIA_EXT <const> = {
     ogg  = { video = true, audio = true },
 }
 
----@type table<number, { teamId: string, exp: integer }> The outstanding upload slot for each
----source. One per player: a later mint replaces an earlier one, so a client cannot bank slots and
----spend them on several URLs later.
+---@alias PresignSlot { cid: string, teamId: string|nil, exp: integer, maxBytes: integer, ticket: table|nil, pending: boolean|nil }
+
+---@type table<number, PresignSlot> The outstanding upload slot for each source. One per player, and
+---a player holding a live slot cannot mint another until it is claimed or expires: a presigned
+---URL cannot be revoked, so replacing a slot would only hand out a second live URL.
 local slots = {}
+
+---@type table<string, integer> GetGameTimer() of each character's last mint.
+local lastMintAt = {}
+---@type table<string, integer[]> os.time() of each character's recent strikes.
+local strikes = {}
+---@type table<string, integer> os.time() until which a character may not mint.
+local lockedUntil = {}
 
 ---@type table<string, integer> Six-bit value of each base64url character (RFC 4648 section 5).
 local B64URL_VALUE = {}
@@ -133,11 +174,44 @@ local function header(headers, name)
     return nil
 end
 
----Whether this server can mint upload slots at all. False sends the Camera down the sliced path,
----which is why nothing in this change deletes it.
+---Records a slot that was taken and not spent honestly: expired unclaimed, abandoned on disconnect,
+---or claimed with a URL that failed a check. A real player's upload fails now and then, so one
+---strike costs nothing; a client farming slots reaches the limit within minutes and is sent back
+---to the server-relayed path, where every byte passes the budget before it is uploaded.
+---@param cid string|nil
+---@param why string
+local function strike(cid, why)
+    if type(cid) ~= 'string' then return end
+    local now = os.time()
+    local kept = {}
+    for _, t in ipairs(strikes[cid] or {}) do
+        if now - t < STRIKE_WINDOW_S then kept[#kept + 1] = t end
+    end
+    kept[#kept + 1] = now
+    strikes[cid] = kept
+    if #kept >= STRIKE_LIMIT then
+        lockedUntil[cid] = now + LOCKOUT_S
+        strikes[cid] = nil
+        print(('^1[morph_phone:photos]^0 [PRESIGN] %s left %d upload slots unused or failed their checks (last: %s); direct upload is off for them for %d min.')
+            :format(cid, #kept, why, LOCKOUT_S // 60))
+    end
+end
+
+---Seconds a slot for files up to `maxBytes` should live.
+---@param maxBytes integer
+---@return integer
+local function ttlFor(maxBytes)
+    local s = math.ceil(maxBytes / TTL_FLOOR_BPS) + 30
+    return math.max(TTL_MIN_S, math.min(TTL_MAX_S, s))
+end
+
+---Whether this server can mint upload slots at all. False sends every app down its server-relayed
+---path, which is why nothing in this change deletes it.
 ---@return boolean
 function presign.available()
-    if PHOTOS.DirectUpload == false then return false end
+    -- Opt-in, under a name older configs never set. Until 2026-09-16 the switch was `DirectUpload`
+    -- and shipped true, so honouring it would leave every existing install exposed.
+    if PHOTOS.AllowDirectUpload ~= true then return false end
     -- Shut until the ledger knows what already exists: a claim answered from a half-filled ledger
     -- would accept the very URLs it is there to refuse.
     if not ledger.ready() then return false end
@@ -148,19 +222,76 @@ end
 ---Mints an upload slot for `src` and hands back the URL the page should POST to. Asynchronous:
 ---calls `cb(url|nil, code|nil)` exactly once. Only the URL crosses to the client; the team and
 ---the expiry stay here, because they are what the claim is later measured against.
+---
+---Every gate that bounds cost lives here rather than in the callers, so an app added later cannot
+---forget one: a loaded character, no lockout, no live slot, the mint cooldown, and `maxBytes`
+---reserved against the upload budget before the provider is even asked.
 ---@param src number player the upload will come from
----@param cb fun(url: string|nil, code: 'unavailable'|'provider'|nil)
-function presign.mint(src, cb)
-    if not presign.available() then
+---@param opts { maxBytes: integer } the largest object the caller's claim will accept
+---@param cb fun(url: string|nil, code: 'unavailable'|'busy'|'cooldown'|'rate-limit'|'provider'|nil)
+function presign.mint(src, opts, cb)
+    local maxBytes = math.floor(tonumber(type(opts) == 'table' and opts.maxBytes or nil) or 0)
+    if not presign.available() or maxBytes <= 0 then
         cb(nil, 'unavailable')
         return
     end
 
-    PerformHttpRequest(PRESIGN_URL, function(status, body)
+    -- The real character: with unique phones on, getIdentifier is the SIM in the phone, and a
+    -- lockout or cooldown keyed by it would reset on every SIM swap.
+    local cid = player.getRealIdentifier(src)
+    if type(cid) ~= 'string' or cid == '' then
+        cb(nil, 'unavailable')
+        return
+    end
+
+    local now = os.time()
+    local held = slots[src]
+    if held then
+        if now < held.exp then
+            cb(nil, 'busy')
+            return
+        end
+        slots[src] = nil
+        if not held.pending then strike(held.cid, 'expired unclaimed') end
+    end
+
+    -- After the stale slot is counted, so the strike that reaches the limit also stops this mint.
+    if (lockedUntil[cid] or 0) > now then
+        cb(nil, 'unavailable')
+        return
+    end
+
+    local nowMs = GetGameTimer()
+    if lastMintAt[cid] and nowMs - lastMintAt[cid] < MINT_COOLDOWN_MS then
+        cb(nil, 'cooldown')
+        return
+    end
+
+    local okBudget, _, ticket = mediaLimit.reserve(src, maxBytes)
+    if not okBudget then
+        cb(nil, 'rate-limit')
+        return
+    end
+
+    lastMintAt[cid] = nowMs
+    local ttl = ttlFor(maxBytes)
+    -- Held while the provider answers, so a second callback fired in the same instant meets a
+    -- live slot instead of minting alongside this one.
+    slots[src] = { cid = cid, exp = now + ttl + 30, maxBytes = maxBytes, ticket = ticket, pending = true }
+
+    ---Gives the reservation back when no URL was handed out: nothing can have been uploaded.
+    ---@param code string
+    local function refuse(code)
+        if slots[src] and slots[src].pending then slots[src] = nil end
+        mediaLimit.settle(ticket, 0)
+        cb(nil, code)
+    end
+
+    PerformHttpRequest(('%s?expiresAt=%d'):format(PRESIGN_URL, now + ttl), function(status, body)
         if status ~= 200 and status ~= 201 then
             print(('^1[morph_phone:photos]^0 [PRESIGN] Fivemanage refused to mint a slot: HTTP %s %s')
                 :format(tostring(status), tostring(body)))
-            cb(nil, 'provider')
+            refuse('provider')
             return
         end
 
@@ -169,7 +300,7 @@ function presign.mint(src, cb)
             and decoded.data.presignedUrl or nil
         if type(url) ~= 'string' or url == '' then
             print(('^1[morph_phone:photos]^0 [PRESIGN] no presignedUrl in the response: %s'):format(tostring(body)))
-            cb(nil, 'provider')
+            refuse('provider')
             return
         end
 
@@ -178,11 +309,18 @@ function presign.mint(src, cb)
         local teamId, exp = readToken(url)
         if not teamId or not exp then
             print('^1[morph_phone:photos]^0 [PRESIGN] the presigned URL carried no readable token; not minting a slot.')
-            cb(nil, 'provider')
+            refuse('provider')
             return
         end
 
-        slots[src] = { teamId = teamId, exp = exp }
+        -- The player left while the provider answered; the URL is never handed out.
+        if not (slots[src] and slots[src].pending and slots[src].ticket == ticket) then
+            mediaLimit.settle(ticket, 0)
+            cb(nil, 'unavailable')
+            return
+        end
+
+        slots[src] = { cid = cid, teamId = teamId, exp = exp, maxBytes = maxBytes, ticket = ticket }
         cb(url)
     end, 'GET', '', { ['Authorization'] = uploader.mediaKey() })
 end
@@ -214,7 +352,7 @@ function presign.claim(src, url, opts, cb)
     local maxBytes = math.floor(tonumber(opts.maxBytes) or 0)
     local kinds    = type(opts.kinds) == 'table' and opts.kinds or {}
     local slot = slots[src]
-    if not slot then
+    if not slot or slot.pending then
         cb(nil, 'no-slot')
         return
     end
@@ -222,19 +360,30 @@ function presign.claim(src, url, opts, cb)
     -- fails falls back to the sliced path rather than getting another go at the same slot.
     slots[src] = nil
 
+    -- The slot's own ceiling wins over a caller's larger one: the reservation was sized to it.
+    maxBytes = math.min(maxBytes, slot.maxBytes or 0)
+
+    ---Refuses the claim and counts it against the character. The reservation stays charged:
+    ---whatever was uploaded to the slot has been billed already.
+    ---@param code string
+    local function refuse(code)
+        strike(slot.cid, code)
+        cb(nil, code)
+    end
+
     if os.time() >= slot.exp then
-        cb(nil, 'expired')
+        refuse('expired')
         return
     end
 
     if type(url) ~= 'string' or #url > MAX_URL_CHARS then
-        cb(nil, 'foreign-url')
+        refuse('foreign-url')
         return
     end
 
     local prefix = CDN_HOST .. slot.teamId .. '/'
     if url:sub(1, #prefix) ~= prefix then
-        cb(nil, 'foreign-url')
+        refuse('foreign-url')
         return
     end
 
@@ -244,14 +393,14 @@ function presign.claim(src, url, opts, cb)
     local name, ext = url:sub(#prefix + 1):match('^([%w%-_]+)%.([%a%d]+)$')
     local extKinds = name and MEDIA_EXT[(ext or ''):lower()] or nil
     if not extKinds then
-        cb(nil, 'foreign-url')
+        refuse('foreign-url')
         return
     end
 
     -- Both, and in this order. The ledger covers every app that has ever hosted media here; the
     -- phone_photos read covers URLs that arrived some other way, such as an allowlisted import.
     if ledger.has(url) or store.urlExistsAnywhere(url) then
-        cb(nil, 'duplicate')
+        refuse('duplicate')
         return
     end
 
@@ -266,7 +415,7 @@ function presign.claim(src, url, opts, cb)
         if status ~= 206 and status ~= 200 then
             print(('^1[morph_phone:photos]^0 [PRESIGN] src=%s claimed an object that is not there: HTTP %s')
                 :format(tostring(src), tostring(status)))
-            cb(nil, 'probe-failed')
+            refuse('probe-failed')
             return
         end
 
@@ -309,7 +458,7 @@ function presign.claim(src, url, opts, cb)
         if not allowed then
             print(('^1[morph_phone:photos]^0 [PRESIGN] src=%s claimed a .%s the CDN serves as %s, which this caller does not take')
                 :format(tostring(src), ext, tostring(ctype)))
-            cb(nil, 'bad-type')
+            refuse('bad-type')
             return
         end
 
@@ -320,13 +469,16 @@ function presign.claim(src, url, opts, cb)
         local total = range and tonumber(range:match('/(%d+)%s*$')) or nil
         local bytes = total or (type(body) == 'string' and #body or 0)
         if bytes <= 0 then
-            cb(nil, 'probe-failed')
+            refuse('probe-failed')
             return
         end
         if bytes > maxBytes then
-            cb(nil, 'too-large')
+            refuse('too-large')
             return
         end
+
+        -- The object is honest, so the reservation comes down to what it really weighs.
+        mediaLimit.settle(slot.ticket, bytes)
 
         -- Recorded before the caller is told, so the object is known to every later claim even if
         -- the row that was going to hold it never saves.
@@ -339,17 +491,26 @@ end
 ---by whoever the server hands that source id to next.
 ---@param src number
 function presign.forget(src)
+    local slot = slots[src]
     slots[src] = nil
+    if slot and not slot.pending then strike(slot.cid, 'abandoned on disconnect') end
 end
 
--- Sweeps slots whose token has expired. A claim checks the expiry itself, so this only keeps the
--- table from holding a slot per player who minted one and then never came back.
+-- Sweeps slots whose token has expired. A claim checks the expiry itself, so this is where a slot
+-- that was taken and never claimed gets counted, and where the table is kept from holding a slot
+-- per player who minted one and then never came back.
 CreateThread(function()
     while true do
         Wait(SWEEP_MS)
         local now = os.time()
         for src, slot in pairs(slots) do
-            if now >= slot.exp then slots[src] = nil end
+            if now >= slot.exp then
+                slots[src] = nil
+                if not slot.pending then strike(slot.cid, 'expired unclaimed') end
+            end
+        end
+        for cid, untilAt in pairs(lockedUntil) do
+            if untilAt <= now then lockedUntil[cid] = nil end
         end
     end
 end)

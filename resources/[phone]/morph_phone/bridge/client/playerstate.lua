@@ -20,7 +20,7 @@ local DOWN_META <const> = { 'isdead', 'inlaststand' }
 ---resolution bridge.client.job does, so a framework added there is added here too.
 ---@return table|nil data
 local function playerData()
-    if framework.name == 'mj' then
+    if framework.name == 'qbx' then
         local ok, data = pcall(function() return exports.morph_junjie:GetPlayerData() end)
         return ok and data or nil
     end

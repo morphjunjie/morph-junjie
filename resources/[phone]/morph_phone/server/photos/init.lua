@@ -11,6 +11,8 @@ local actions  = require 'server.photos.actions'
 local uploader = require 'server.photos.uploader'
 ---@type table Presigned upload slots (server.photos.presign): mint + claim for the direct path.
 local presign  = require 'server.photos.presign'
+---@type table HTTP upload ingest (server.media.httpUpload): single-use slots on the server's HTTP port.
+local httpUpload = require 'server.media.httpUpload'
 ---@type table Media URL ledger (server.media.ledger): schema + one-time backfill at boot.
 local ledger   = require 'server.media.ledger'
 ---@type table Player bridge (bridge.server.player): citizenid for the shared upload budget.
@@ -22,6 +24,30 @@ local mediaLimit = require 'server.photos.mediaLimit'
 local util     = require 'server.util'
 ---@type table AirShare core (server.share.core): per-kind delivery handler registry.
 local share    = require 'server.share.core'
+
+---@type string GlobalState key carrying the game view mode every client renders with.
+local GAME_VIEW_MODE_KEY <const> = 'morph_phone:gameViewMode'
+
+---Resolves Photos.EnhancedGameView into the game view mode clients are told to use.
+---@param setting any Photos.EnhancedGameView as written in configs/photos.lua.
+---@return 'off'|'probe'|'force' mode
+local function resolveGameViewMode(setting)
+    if setting == 'probe' or setting == 'force' then return setting end
+    if setting == false or setting == 'off' then return 'off' end
+    return GetConvar('version', ''):find('early-access', 1, true) and 'probe' or 'off'
+end
+
+GlobalState[GAME_VIEW_MODE_KEY] = resolveGameViewMode((config.Photos or require 'configs.photos').EnhancedGameView)
+
+-- The direct-upload switch was renamed when it became opt-in, so a config still carrying the old
+-- key is quietly on the server-relayed path. Say so once, rather than leave an owner wondering why
+-- captures stopped going straight to the CDN.
+do
+    local PHOTOS_CFG = config.Photos or require 'configs.photos'
+    if PHOTOS_CFG.DirectUpload == true and PHOTOS_CFG.AllowDirectUpload ~= true then
+        boot.warn('^3[morph_phone]^0 Photos.DirectUpload is no longer read: direct uploads are off unless AllowDirectUpload = true (see configs/photos.lua before turning it on).')
+    end
+end
 
 -- Without a media token nothing a player captures can ever be stored, and the Camera used to
 -- swallow that: the shutter span, the spinner ran out, no photo, no reason. Say it once at boot
@@ -142,7 +168,8 @@ end
 ---@param src number player the capture came from
 ---@param image string base64 data-URL (data:image/... or data:video/...)
 ---@param isVideo boolean whether the payload is a clip rather than a still
-local function startUpload(src, image, isVideo)
+---@param prepaid boolean|nil true when an HTTP slot already holds the budget for it
+local function startUpload(src, image, isVideo, prepaid)
     local prefix  = isVideo and 'data:video/' or 'data:image/'
     if type(image) ~= 'string' or image:sub(1, #prefix) ~= prefix then
         uploadFailed(src, 'bad-data', ('not a %s data-URL'):format(isVideo and 'video' or 'image'))
@@ -156,12 +183,13 @@ local function startUpload(src, image, isVideo)
         uploadFailed(src, 'busy', 'an upload is already in progress')
         return
     end
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), #image)
-    if not okLimit then
-        uploadFailed(src, 'rate-limit', ('rate limit (%s)'):format(tostring(why)))
-        return
+    if not prepaid then
+        local okLimit, why = mediaLimit.charge(src, #image)
+        if not okLimit then
+            uploadFailed(src, 'rate-limit', ('rate limit (%s)'):format(tostring(why)))
+            return
+        end
     end
-
 
     local ext = 'jpg'
     if isVideo then
@@ -187,6 +215,26 @@ RegisterNetEvent('morph_phone:server:photos:upload', function(image)
     local src = source
     if type(image) == 'string' then logUpload(src, 'photo', #image, 1, nil) end
     startUpload(src, image, false)
+end)
+
+---React -> server: open an HTTP upload slot for a photo or a clip, sized for the larger of the two
+---caps only when a clip is announced.
+---@param payload table { kind: 'photo'|'clip' }
+lib.callback.register('morph_phone:server:photos:httpSlot', function(src, payload)
+    local isVideo = type(payload) == 'table' and payload.kind == 'clip'
+    local slot, why = nil, 'busy'
+    if not uploading[src] then
+        slot, why = httpUpload.mint(src, isVideo and MAX_VIDEO_BYTES or MAX_PHOTO_BYTES, function(owner, body)
+            logUpload(owner, isVideo and 'clip' or 'photo', #body, 1, nil)
+            startUpload(owner, body, isVideo, true)
+            return { success = true }
+        end)
+    end
+    if not slot then
+        uploadFailed(src, why == 'busy' and 'busy' or 'rate-limit', ('upload slot refused (%s)'):format(tostring(why)))
+        return { success = false, code = why }
+    end
+    return { success = true, data = slot }
 end)
 
 -- Sliced clip upload. A whole clip is megabytes, and one latent event that size blocks the net
@@ -312,16 +360,10 @@ end)
 -- for a Fivemanage outage, and for a client whose upload is blocked, so every rejection here ends
 -- with the Camera quietly taking the old route.
 
----@type integer Minimum gap between slot mints from one source (ms). A slot is single-flight
----already, so this is not about concurrency: it stops a modified client spending this server's
----Fivemanage API quota in a loop. The upload's real cost is charged to the shared media budget on
----the claim instead, once the CDN has said how big the object actually is - charging it here with
----no byte count would burn the budget's one-second gap and make the claim moments later look like
----a flood.
-local SLOT_COOLDOWN_MS <const> = 1000
-
----@type table<number, integer> GetGameTimer() when each source last asked for a slot.
-local lastSlotAt = {}
+---@type integer Largest object a Camera claim accepts, in raw bytes. The sliced path caps a clip
+---at 32 MB of base64, which is 24 MB of file; the direct path must never be the more permissive
+---of the two, or turning the fallback on would start rejecting captures that used to save.
+local MAX_DIRECT_BYTES <const> = math.floor(MAX_VIDEO_BYTES * 0.75)
 
 ---React -> server: mint an upload slot. Only the URL to POST to crosses back; the bucket and the
 ---expiry it is later measured against stay on the server, because handing a client the thing its
@@ -330,14 +372,9 @@ lib.callback.register('morph_phone:server:photos:uploadSlot', function(src)
     if not presign.available() then return { success = false, code = 'unavailable' } end
     if uploading[src] or assembling[src] then return { success = false, code = 'busy' } end
 
-    local now = GetGameTimer()
-    if lastSlotAt[src] and (now - lastSlotAt[src]) < SLOT_COOLDOWN_MS then
-        return { success = false, code = 'cooldown' }
-    end
-    lastSlotAt[src] = now
-
     local p = promise.new()
-    presign.mint(src, function(url, code) p:resolve({ url = url, code = code }) end)
+    presign.mint(src, { maxBytes = MAX_DIRECT_BYTES },
+        function(url, code) p:resolve({ url = url, code = code }) end)
     local res = Citizen.Await(p)
 
     if not res.url then return { success = false, code = res.code or 'provider' } end
@@ -351,12 +388,9 @@ end)
 lib.callback.register('morph_phone:server:photos:uploadDone', function(src, payload)
     payload = type(payload) == 'table' and payload or {}
 
-    -- The sliced path caps a clip at 32 MB of base64, which is 24 MB of file. The direct path
-    -- must never be the more permissive of the two, or turning the fallback on would start
-    -- rejecting captures that used to save.
     local p = promise.new()
     presign.claim(src, payload.url,
-        { maxBytes = math.floor(MAX_VIDEO_BYTES * 0.75), kinds = { image = true, video = true } },
+        { maxBytes = MAX_DIRECT_BYTES, kinds = { image = true, video = true } },
         function(url, code, bytes)
         p:resolve({ url = url, code = code, bytes = bytes })
     end)
@@ -366,14 +400,6 @@ lib.callback.register('morph_phone:server:photos:uploadDone', function(src, payl
         logFailure(src, res.code or 'bad-data', ('direct-upload claim refused for %s')
             :format(tostring(payload.url)))
         return { success = false, code = res.code }
-    end
-
-    -- The same budget the sliced path is charged, so moving a clip off the game network does not
-    -- also move it out of the per-character ceiling on sustained upload.
-    local okLimit, why = mediaLimit.check(player.getIdentifier(src), res.bytes)
-    if not okLimit then
-        logFailure(src, 'rate-limit', ('rate limit (%s)'):format(tostring(why)))
-        return { success = false, code = 'rate-limit' }
     end
 
     -- Reported like the sliced path so the two are comparable in one log, and so the check the
@@ -391,8 +417,7 @@ end)
 ---Clears a departing player's in-flight upload flag so a disconnect mid-upload can't leave them
 ---permanently unable to upload after reconnecting on the same source id.
 AddEventHandler('playerDropped', function()
-    uploading[source]  = nil
-    lastSlotAt[source] = nil
+    uploading[source] = nil
 end)
 
 ---Saves an already-hosted media URL for the caller and pushes photos:added with the new row.
@@ -406,7 +431,7 @@ lib.callback.register('morph_phone:server:photos:saveUrl', function(src, payload
     end
     -- Same budget the capture upload uses: saving a hosted URL is a deliberate tap, so the 1s
     -- gap is invisible, and without it this path writes and prunes phone_photos at line rate.
-    local okLimit = mediaLimit.check(player.getIdentifier(src), #(payload and payload.url or ''))
+    local okLimit = mediaLimit.charge(src, #(payload and payload.url or ''))
     if not okLimit then return { success = false, messageKey = 'photos.slowDownMoment', message = 'Slow down a moment' } end
     local res = actions.saveFromUrl(src, payload and payload.url, true)
     if res and res.success and res.data and res.data.photo then
